@@ -1,29 +1,9 @@
-import re
-
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import RSVP
-from ..schemas import RSVPCreate
-
-
-def normalize_phone(raw: str) -> str:
-    """Normalize Colombian mobile numbers.
-
-    Rules:
-    1. Strip all non-digit characters.
-    2. If starts with '57' and has 12 digits, strip '57'.
-    3. Must be exactly 10 digits and start with '3'.
-    """
-    digits = re.sub(r"\D", "", raw)
-    if digits.startswith("57") and len(digits) == 12:
-        digits = digits[2:]
-
-    if len(digits) != 10 or not digits.startswith("3"):
-        raise ValueError("Formato de teléfono inválido")
-
-    return digits
+from ..schemas import RSVPCreate, RSVPUpdate, normalize_phone
 
 
 def create_rsvp(db: Session, rsvp_in: RSVPCreate) -> tuple[str, RSVP | None]:
@@ -81,3 +61,57 @@ def get_rsvp_count(db: Session) -> int:
     """Get total count of RSVPs."""
     query = select(RSVP)
     return len(list(db.execute(query).scalars().all()))
+
+
+def delete_rsvp(db: Session, rsvp_id: int) -> bool:
+    """Delete an RSVP record by its ID. Returns True if deleted, False if not found."""
+    rsvp = db.execute(select(RSVP).where(RSVP.id == rsvp_id)).scalar_one_or_none()
+    if not rsvp:
+        return False
+    db.delete(rsvp)
+    db.commit()
+    return True
+
+
+def update_rsvp(
+    db: Session,
+    rsvp_id: int,
+    update_in: RSVPUpdate,
+) -> tuple[str, RSVP | None]:
+    """Update an RSVP record using validated RSVPUpdate schema.
+
+    Returns:
+        ("SUCCESS", rsvp)
+        ("NOT_FOUND", None)
+        ("DUPLICATE", None)
+    """
+    rsvp = db.execute(select(RSVP).where(RSVP.id == rsvp_id)).scalar_one_or_none()
+    if not rsvp:
+        return "NOT_FOUND", None
+
+    if update_in.phone is not None:
+        existing = db.execute(
+            select(RSVP).where(RSVP.phone == update_in.phone, RSVP.id != rsvp_id)
+        ).scalar_one_or_none()
+        if existing:
+            return "DUPLICATE", None
+        rsvp.phone = update_in.phone
+
+    if update_in.name is not None:
+        rsvp.name = update_in.name
+
+    if update_in.email is not None:
+        rsvp.email = update_in.email
+
+    try:
+        db.commit()
+        db.refresh(rsvp)
+        return "SUCCESS", rsvp
+    except IntegrityError:
+        db.rollback()
+        return "DUPLICATE", None
+    except Exception:
+        db.rollback()
+        raise
+
+

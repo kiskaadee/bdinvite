@@ -13,11 +13,13 @@ from ..schemas import (
     GenerateMapPreviewResponse,
     InvitationConfigResponse,
     InvitationConfigUpdate,
+    RSVPAdminItem,
     RSVPListResponse,
+    RSVPUpdate,
 )
 from ..services.config import get_config, seed_default_config, update_config
 from ..services.map_preview import generate_map_preview_image, resolve_google_maps_coordinates
-from ..services.rsvp import get_rsvps
+from ..services.rsvp import delete_rsvp, get_rsvps, update_rsvp
 
 router = APIRouter(tags=["Admin"])
 
@@ -80,6 +82,67 @@ def list_rsvps(
         count=len(rsvps),
         rsvps=rsvps,  # type: ignore[arg-type]
     )
+
+
+@router.delete(
+    "/rsvps/{rsvp_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar confirmación de asistencia",
+    description="Elimina permanentemente un registro de RSVP por su identificador.",
+    responses={
+        204: {"description": "Registro eliminado con éxito."},
+        404: {"description": "Registro no encontrado."},
+        **ADMIN_401,
+    },
+)
+def delete_rsvp_endpoint(
+    rsvp_id: int,
+    admin: AdminDep,
+    db: DbDep,
+):
+    deleted = delete_rsvp(db, rsvp_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró el registro con ID {rsvp_id}",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/rsvps/{rsvp_id}",
+    response_model=RSVPAdminItem,
+    summary="Editar una confirmación de asistencia",
+    description="Actualiza el nombre, teléfono o correo de un asistente confirmado.",
+    responses={
+        200: {"model": RSVPAdminItem, "description": "Registro actualizado exitosamente."},
+        400: {"description": "Error de validación en los campos proporcionados."},
+        404: {"description": "Registro no encontrado."},
+        409: {"description": "El número de teléfono ya está registrado por otro asistente."},
+        **ADMIN_401,
+    },
+)
+def update_rsvp_endpoint(
+    rsvp_id: int,
+    payload: RSVPUpdate,
+    admin: AdminDep,
+    db: DbDep,
+):
+    status_res, updated = update_rsvp(db, rsvp_id, payload)
+
+    if status_res == "NOT_FOUND":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró el registro con ID {rsvp_id}",
+        )
+    if status_res == "DUPLICATE":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El número de teléfono ya está registrado para otro asistente.",
+        )
+    assert updated is not None
+    return updated
+
 
 
 @router.get(

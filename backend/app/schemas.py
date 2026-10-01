@@ -6,6 +6,24 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+def normalize_phone(raw: str) -> str:
+    """Normalize Colombian mobile numbers.
+
+    Rules:
+    1. Strip all non-digit characters.
+    2. If starts with '57' and has 12 digits, strip '57'.
+    3. Must be exactly 10 digits and start with '3'.
+    """
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("57") and len(digits) == 12:
+        digits = digits[2:]
+
+    if len(digits) != 10 or not digits.startswith("3"):
+        raise ValueError("Formato de teléfono inválido")
+
+    return digits
+
+
 class RSVPCreate(BaseModel):
     name: str = Field(
         ...,
@@ -36,6 +54,11 @@ class RSVPCreate(BaseModel):
             raise ValueError("El nombre no puede estar vacío.")
         return cleaned
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        return normalize_phone(v)
+
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str | None) -> str | None:
@@ -48,6 +71,61 @@ class RSVPCreate(BaseModel):
         if not re.match(email_regex, cleaned):
             raise ValueError("Formato de correo electrónico inválido")
         return cleaned.lower()
+
+
+class RSVPUpdate(BaseModel):
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Nombre completo del invitado",
+        examples=["Andrés García"],
+    )
+    phone: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Número móvil en formato colombiano (10 dígitos, con o sin prefijo +57)",
+        examples=["+57 300 123 4567"],
+    )
+    email: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Correo electrónico opcional para confirmación y recordatorios",
+        examples=["andres@example.com"],
+    )
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = " ".join(v.strip().split())
+        if not cleaned:
+            raise ValueError("El nombre no puede estar vacío.")
+        return cleaned
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        return normalize_phone(v)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        email_regex = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+        if not re.match(email_regex, cleaned):
+            raise ValueError("Formato de correo electrónico inválido")
+        return cleaned.lower()
+
+
 
 
 class RSVPSuccessResponse(BaseModel):
