@@ -82,13 +82,13 @@ Catches all `/birthday/*` traffic that does not match a higher-priority router.
 
 | Property | Value |
 |---|---|
-| Rule | ``Host(`demos.roadtotech.me`) && PathPrefix(`/birthday/admin`)`` |
+| Rule | ``Host(`demos.roadtotech.me`) && (PathPrefix(`/birthday/admin`) || PathPrefix(`/birthday/api/admin`))`` |
 | Entrypoint | `websecure` (port 443) |
 | TLS | Enabled |
 | Middleware | `authelia-auth@docker` (ForwardAuth) |
 | Priority | 20 |
 
-Higher priority ensures `/birthday/admin/*` requests are intercepted before the generic public router.
+Higher priority ensures `/birthday/admin/*` and `/birthday/api/admin/*` requests are intercepted before the generic public router.
 
 ### 4.3 HTTP Redirect Router — `bdinvite-red`
 
@@ -160,7 +160,7 @@ services:
       - "traefik.http.routers.bdinvite-public.service=bdinvite-svc"
 
       # Admin router (Authelia-protected)
-      - "traefik.http.routers.bdinvite-admin.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday/admin`)"
+      - "traefik.http.routers.bdinvite-admin.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && (PathPrefix(`/birthday/admin`) || PathPrefix(`/birthday/api/admin`))"
       - "traefik.http.routers.bdinvite-admin.entrypoints=websecure"
       - "traefik.http.routers.bdinvite-admin.tls=true"
       - "traefik.http.routers.bdinvite-admin.priority=20"
