@@ -25,38 +25,39 @@
 
 ## Phase 2 — Frontend Scaffolding
 
-- [ ] Vite + React + TypeScript setup
-- [ ] React Router with `basename=/birthday`
-- [ ] API client (`/birthday/api/*`)
-- [ ] Config loading state (`CONFIG_LOADING` → `INVITATION` | `CONFIG_ERROR`)
-- [ ] Self-hosted font files (display script + Montserrat)
-- [ ] CSS Modules setup and global styles
-- [ ] TypeScript interfaces for config and API responses
+- [x] Vite + React + TypeScript setup
+- [x] React Router with `basename=/birthday`
+- [x] API client (`/birthday/api/*`)
+- [x] Config loading state (`CONFIG_LOADING` → `INVITATION` | `CONFIG_ERROR`)
+- [x] Self-hosted font files (display script + Montserrat)
+- [x] CSS Modules setup and global styles
+- [x] TypeScript interfaces for config and API responses
 
 ## Phase 3 — Guest Experience
 
-- [ ] Invitation hero section (fixed aspect ratio)
-- [ ] Canvas 2D particle background (golden bokeh)
-- [ ] RSVP CTA with smooth scroll transition
-- [ ] RSVP form with client-side validation (Colombian phone format)
-- [ ] Submission state machine (`SUBMITTING` → `SUCCESS` | `DUPLICATE` | `ERROR`)
-- [ ] Confirmation section: personalized message
-- [ ] Countdown timer (timezone-aware, `NOS VEMOS EN DD:HH:MM:SS`)
-- [ ] Map preview (circular static image, link to `mapUrl`)
-- [ ] Venue info (compact name + address)
-- [ ] `sessionStorage` post-RSVP state preservation
-- [ ] Accessibility (semantic HTML, keyboard nav, aria-live, focus states)
-- [ ] `prefers-reduced-motion` support (static particles)
-- [ ] Responsive behavior (mobile-first, desktop stage)
+- [x] Invitation hero section (fixed aspect ratio)
+- [x] Canvas 2D particle background (golden bokeh)
+- [x] RSVP CTA with smooth scroll transition
+- [x] RSVP form with client-side validation (Colombian phone format)
+- [x] Submission state machine (`SUBMITTING` → `SUCCESS` | `DUPLICATE` | `ERROR`)
+- [x] Confirmation section: personalized message
+- [x] Countdown timer (timezone-aware, `NOS VEMOS EN DD:HH:MM:SS`)
+- [x] Map preview (circular static image, link to `mapUrl`)
+- [x] Venue info (compact name + address)
+- [x] `sessionStorage` post-RSVP state preservation
+- [x] Accessibility (semantic HTML, keyboard nav, aria-live, focus states)
+- [x] `prefers-reduced-motion` support (static particles)
+- [x] Responsive behavior (mobile-first, desktop stage)
 
 ## Phase 4 — Admin Dashboard
 
-- [ ] Admin layout shell (header, navigation)
-- [ ] RSVP table with total count
-- [ ] Search/filter RSVPs
-- [ ] CSV export download button
-- [ ] Config editor form (flat fields, Pydantic-validated)
-- [ ] Text preview of invitation content
+- [x] Admin layout shell (header, navigation)
+- [x] RSVP table with total count
+- [x] Search/filter RSVPs
+- [x] CSV export download button
+- [x] Config editor form (flat fields, Pydantic-validated)
+- [x] Text preview of invitation content
+
 
 ## Phase 5 — Infrastructure & Deployment
 

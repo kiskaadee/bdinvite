@@ -1,0 +1,77 @@
+/* Self-hosted fonts */
+@font-face {
+  font-family: "InviteDisplay";
+  src: url("/birthday/fonts/display.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/birthday/fonts/montserrat/montserrat-latin.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --color-bg: #0a0a0a;
+  --color-card-bg: #121212;
+  --color-gold: #d4a843;
+  --color-gold-light: #f0d68a;
+  --color-gold-dark: #8b7332;
+  --color-gold-border: rgba(212, 168, 67, 0.25);
+  --color-gold-border-focus: rgba(212, 168, 67, 0.65);
+  --color-text: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.72);
+  --color-text-dim: rgba(255, 255, 255, 0.45);
+  --color-error: #e74c3c;
+  --color-error-bg: rgba(231, 76, 60, 0.12);
+
+  --font-display: "InviteDisplay", cursive, "Great Vibes", serif;
+  --font-body: "Montserrat", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --max-content-width: 480px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  overflow-x: hidden;
+  position: relative;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
