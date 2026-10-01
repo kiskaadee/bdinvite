@@ -1,5 +1,4 @@
 import pytest
-
 from app.services.rsvp import normalize_phone
 
 
