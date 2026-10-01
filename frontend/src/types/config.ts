@@ -30,6 +30,13 @@ export interface RSVPRequest {
   email?: string | null;
 }
 
+export interface RSVPUpdateRequest {
+  name?: string;
+  phone?: string;
+  email?: string | null;
+}
+
+
 export type RSVPApiResult =
   | { result: "SUCCESS"; name: string }
   | { result: "DUPLICATE" }

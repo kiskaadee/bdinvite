@@ -1,8 +1,10 @@
 import type {
   InvitationConfig,
   RSVPApiResult,
+  RSVPAdminItem,
   RSVPListResponse,
   RSVPRequest,
+  RSVPUpdateRequest,
 } from "../types/config";
 
 const BASE_API = "/birthday/api";
@@ -117,3 +119,42 @@ export async function regenerateMapPreview(
   }
   return res.json();
 }
+
+export async function deleteAdminRsvp(rsvpId: number): Promise<void> {
+  const res = await fetch(`${BASE_API}/admin/rsvps/${rsvpId}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const errorJson = await res.json().catch(() => null);
+    const msg = errorJson?.detail || `HTTP ${res.status}`;
+    throw new Error(`Error al eliminar asistente: ${msg}`);
+  }
+}
+
+export async function updateAdminRsvp(
+  rsvpId: number,
+  data: RSVPUpdateRequest,
+): Promise<RSVPAdminItem> {
+  const res = await fetch(`${BASE_API}/admin/rsvps/${rsvpId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const msg =
+      errorJson?.detail ||
+      (errorJson?.errors
+        ? Object.values(errorJson.errors).join(", ")
+        : `HTTP ${res.status}`);
+    throw new Error(msg || "Error al actualizar asistente.");
+  }
+  return res.json();
+}
+

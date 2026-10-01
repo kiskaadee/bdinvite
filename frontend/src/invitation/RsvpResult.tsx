@@ -11,6 +11,8 @@ interface RsvpResultProps {
   confirmedName: string;
   config: InvitationConfig;
   onRetry: () => void;
+  isDetailsOnly?: boolean;
+  onBackToForm?: () => void;
 }
 
 export function RsvpResult({
@@ -18,6 +20,8 @@ export function RsvpResult({
   confirmedName,
   config,
   onRetry,
+  isDetailsOnly = false,
+  onBackToForm,
 }: RsvpResultProps) {
   const countdown = useCountdown(
     config.event_date,
@@ -25,14 +29,108 @@ export function RsvpResult({
     config.event_timezone,
   );
 
+  if (isDetailsOnly) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          margin: "0 auto",
+          padding: "1.5rem 1.5rem 3.5rem 1.5rem",
+          textAlign: "center",
+        }}
+        aria-live="polite"
+      >
+        <h3
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(2.8rem, 9vw, 3.6rem)",
+            fontWeight: 400,
+            color: "var(--color-gold-light)",
+            lineHeight: 1.15,
+            marginBottom: "0.4rem",
+            textShadow: "0 2px 20px rgba(212, 168, 67, 0.4)",
+          }}
+        >
+          Ubicación del Evento
+        </h3>
+
+        <p
+          style={{
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            letterSpacing: "0.18em",
+            color: "var(--color-gold)",
+            textTransform: "uppercase",
+            marginBottom: "1.5rem",
+          }}
+        >
+          {config.address_name}
+        </p>
+
+        {/* Live Countdown */}
+        <Countdown
+          days={countdown.days}
+          hours={countdown.hours}
+          minutes={countdown.minutes}
+          seconds={countdown.seconds}
+          state={countdown.state}
+          label={config.countdown_label}
+          inProgressLabel={config.countdown_in_progress}
+          finishedLabel={config.countdown_finished}
+        />
+
+        {/* Decorative divider dot */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "0.4rem",
+            margin: "1.5rem 0",
+            color: "var(--color-gold)",
+            opacity: 0.5,
+            fontSize: "1.2rem",
+          }}
+          aria-hidden="true"
+        >
+          <span>·</span>
+          <span>·</span>
+          <span>·</span>
+        </div>
+
+        {/* Circular Map Preview and Venue Logistics */}
+        <MapPreview
+          previewUrl={config.map_preview_url}
+          mapUrl={config.map_url}
+          venueName={config.address_name}
+        />
+
+        <VenueInfo venueName={config.address_name} addressLines={config.address_lines} />
+
+        {onBackToForm && (
+          <div style={{ marginTop: "2.5rem" }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBackToForm}
+              style={{ fontSize: "0.75rem", padding: "0.6rem 1.4rem" }}
+            >
+              « VOLVER AL FORMULARIO DE ASISTENCIA
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (formState === "duplicate") {
     return (
       <div
         style={{
           width: "100%",
-          maxWidth: "420px",
+          maxWidth: "440px",
           margin: "0 auto",
-          padding: "2.5rem 1.5rem",
+          padding: "1.5rem 1.5rem 3.5rem 1.5rem",
           textAlign: "center",
         }}
         role="alert"
@@ -40,29 +138,58 @@ export function RsvpResult({
         <h3
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "3.2rem",
+            fontSize: "clamp(2.8rem, 9vw, 3.6rem)",
             fontWeight: 400,
             color: "var(--color-gold-light)",
-            marginBottom: "1rem",
+            marginBottom: "0.8rem",
             textShadow: "0 2px 14px rgba(212, 168, 67, 0.3)",
           }}
         >
-          ¡Ups!
+          ¡Ya estás registrado!
         </h3>
         <p
           style={{
             fontSize: "0.92rem",
             lineHeight: 1.7,
             color: "var(--color-text-muted)",
-            marginBottom: "2rem",
+            marginBottom: "1.8rem",
           }}
         >
           {config.msg_duplicate ||
-            "Parece que ya tenemos tus datos registrados. Si necesitas modificar tu información, ponte en contacto con nosotros."}
+            "Parece que ya tenemos tus datos registrados. ¡Te esperamos!"}
         </p>
-        <Button variant="outline" onClick={onRetry}>
-          VOLVER AL FORMULARIO
-        </Button>
+
+        {/* Live Countdown */}
+        <Countdown
+          days={countdown.days}
+          hours={countdown.hours}
+          minutes={countdown.minutes}
+          seconds={countdown.seconds}
+          state={countdown.state}
+          label={config.countdown_label}
+          inProgressLabel={config.countdown_in_progress}
+          finishedLabel={config.countdown_finished}
+        />
+
+        {/* Circular Map Preview and Venue Logistics */}
+        <MapPreview
+          previewUrl={config.map_preview_url}
+          mapUrl={config.map_url}
+          venueName={config.address_name}
+        />
+
+        <VenueInfo venueName={config.address_name} addressLines={config.address_lines} />
+
+        <div style={{ marginTop: "2rem" }}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRetry}
+            style={{ fontSize: "0.75rem", padding: "0.6rem 1.4rem" }}
+          >
+            VOLVER AL FORMULARIO
+          </Button>
+        </div>
       </div>
     );
   }

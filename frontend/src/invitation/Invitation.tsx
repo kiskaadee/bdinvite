@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
 import { useConfig } from "../hooks/useConfig";
@@ -11,6 +11,7 @@ import { RsvpResult } from "./RsvpResult";
 export function Invitation() {
   const { config, status, error, reload } = useConfig();
   const rsvpForm = useRsvpForm();
+  const [showDetailsOnly, setShowDetailsOnly] = useState(false);
   const rsvpSectionRef = useRef<HTMLDivElement | null>(null);
 
   function scrollToRsvp() {
@@ -112,7 +113,17 @@ export function Invitation() {
         }}
       >
         {/* Section 1: Invitation Hero */}
-        <InvitationHero config={config} onCtaClick={scrollToRsvp} />
+        <InvitationHero
+          config={config}
+          onCtaClick={() => {
+            setShowDetailsOnly(false);
+            scrollToRsvp();
+          }}
+          onShowDetailsClick={() => {
+            setShowDetailsOnly(true);
+            scrollToRsvp();
+          }}
+        />
 
         {/* Section 2: RSVP / Confirmation Flow */}
         <div
@@ -129,7 +140,16 @@ export function Invitation() {
             position: "relative",
           }}
         >
-          {rsvpForm.formState === "idle" || rsvpForm.formState === "submitting" ? (
+          {showDetailsOnly ? (
+            <RsvpResult
+              formState="idle"
+              confirmedName=""
+              config={config}
+              onRetry={() => setShowDetailsOnly(false)}
+              isDetailsOnly={true}
+              onBackToForm={() => setShowDetailsOnly(false)}
+            />
+          ) : rsvpForm.formState === "idle" || rsvpForm.formState === "submitting" ? (
             <RsvpForm
               config={config}
               name={rsvpForm.name}
@@ -141,6 +161,7 @@ export function Invitation() {
               formState={rsvpForm.formState}
               errors={rsvpForm.errors}
               onSubmit={rsvpForm.submit}
+              onShowDetails={() => setShowDetailsOnly(true)}
             />
           ) : (
             <RsvpResult

@@ -16,6 +16,7 @@ interface RsvpFormProps {
   formState: RsvpFormState;
   errors: FormErrors;
   onSubmit: () => void;
+  onShowDetails?: () => void;
 }
 
 export function RsvpForm({
@@ -29,6 +30,7 @@ export function RsvpForm({
   formState,
   errors,
   onSubmit,
+  onShowDetails,
 }: RsvpFormProps) {
   const isSubmitting = formState === "submitting";
 
@@ -107,6 +109,40 @@ export function RsvpForm({
             config.submit_label || "TE VEO AHÍ"
           )}
         </Button>
+
+        {onShowDetails && (
+          <div style={{ marginTop: "1.4rem" }}>
+            <button
+              type="button"
+              onClick={onShowDetails}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--color-gold)",
+                fontSize: "0.78rem",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                padding: "0.4rem 0.8rem",
+                borderRadius: "4px",
+                textDecoration: "underline",
+                textUnderlineOffset: "4px",
+                opacity: 0.85,
+                transition: "opacity 0.2s ease, color 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.color = "var(--color-gold-light)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "0.85";
+                e.currentTarget.style.color = "var(--color-gold)";
+              }}
+            >
+              ¿Ya confirmaste? Ver ubicación y mapa ↓
+            </button>
+          </div>
+        )}
       </div>
     </form>
   );

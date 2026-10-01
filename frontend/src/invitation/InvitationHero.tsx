@@ -4,9 +4,14 @@ import { RsvpCta } from "./RsvpCta";
 interface InvitationHeroProps {
   config: InvitationConfig;
   onCtaClick: () => void;
+  onShowDetailsClick?: () => void;
 }
 
-export function InvitationHero({ config, onCtaClick }: InvitationHeroProps) {
+export function InvitationHero({
+  config,
+  onCtaClick,
+  onShowDetailsClick,
+}: InvitationHeroProps) {
   // Parse date into Month, Day, and Day of Week
   const [year, monthNum, dayNum] = config.event_date.split("-").map(Number);
   const dateObj = new Date(year, (monthNum || 1) - 1, dayNum || 1);
@@ -167,8 +172,46 @@ export function InvitationHero({ config, onCtaClick }: InvitationHeroProps) {
       </div>
 
       {/* 4. RSVP Call to action */}
-      <div style={{ marginBottom: "1rem" }}>
+      <div
+        style={{
+          marginBottom: "1rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.8rem",
+        }}
+      >
         <RsvpCta label={config.rsvp_cta} onClick={onCtaClick} />
+        {onShowDetailsClick && (
+          <button
+            type="button"
+            onClick={onShowDetailsClick}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--color-text-muted)",
+              fontSize: "0.74rem",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              padding: "0.3rem 0.6rem",
+              textDecoration: "underline",
+              textUnderlineOffset: "3px",
+              opacity: 0.8,
+              transition: "opacity 0.2s ease, color 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = "1";
+              e.currentTarget.style.color = "var(--color-gold)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = "0.8";
+              e.currentTarget.style.color = "var(--color-text-muted)";
+            }}
+          >
+            ¿Ya confirmaste? Ver ubicación y mapa
+          </button>
+        )}
       </div>
     </section>
   );
