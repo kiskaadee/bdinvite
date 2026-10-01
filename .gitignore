@@ -14,6 +14,8 @@ backend/data/
 
 # Build output
 frontend/dist/
+backend/static/
+*.tsbuildinfo
 
 # Data (volume-mounted, contains SQLite DB)
 data/

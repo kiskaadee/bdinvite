@@ -106,3 +106,6 @@ def test_spa_catch_all(client):
 
     res_subpath = client.get("/birthday/admin")
     assert res_subpath.status_code == 200
+
+    res_font = client.get("/birthday/fonts/display.woff2")
+    assert res_font.status_code == 200

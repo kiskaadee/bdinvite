@@ -75,6 +75,11 @@ if os.path.isdir(ASSETS_DIR):
 @app.get("/birthday")
 @app.get("/birthday/{full_path:path}")
 async def spa_catch_all(full_path: str = ""):
+    if full_path:
+        requested_file = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(requested_file):
+            return FileResponse(requested_file)
+
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.isfile(index_file):
         return FileResponse(index_file)
