@@ -11,17 +11,17 @@
 
 ## Phase 1 — Backend
 
-- [ ] Project scaffolding (`pyproject.toml`, app directory)
-- [ ] SQLite database with WAL mode
-- [ ] SQLAlchemy models (`RSVP`, `InvitationConfig`)
-- [ ] Pydantic request/response schemas
-- [ ] Config seeding and CRUD
-- [ ] `POST /birthday/api/rsvp` with phone normalization
-- [ ] `GET /birthday/api/config`
-- [ ] Admin endpoints with `Remote-User` guard
-- [ ] CSV export endpoint
-- [ ] SPA catch-all route
-- [ ] Backend tests
+- [x] Project scaffolding (`pyproject.toml`, app directory)
+- [x] SQLite database with WAL mode
+- [x] SQLAlchemy models (`RSVP`, `InvitationConfig`)
+- [x] Pydantic request/response schemas
+- [x] Config seeding and CRUD
+- [x] `POST /birthday/api/rsvp` with phone normalization
+- [x] `GET /birthday/api/config`
+- [x] Admin endpoints with `Remote-User` guard
+- [x] CSV export endpoint
+- [x] SPA catch-all route
+- [x] Backend tests (15 unit/integration tests passing)
 
 ## Phase 2 — Frontend Scaffolding
 
