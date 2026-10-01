@@ -1,0 +1,27 @@
+# Dependencies
+frontend/node_modules/
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Build output
+frontend/dist/
+
+# Data (volume-mounted, contains SQLite DB)
+data/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
