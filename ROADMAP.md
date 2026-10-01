@@ -61,11 +61,11 @@
 
 ## Phase 5 — Infrastructure & Deployment
 
-- [ ] Dockerfile (multi-stage build)
-- [ ] `docker-compose.yml` with split Traefik routing
-- [ ] `app.yaml` manifest for `appctl`
-- [ ] `.gitignore` finalized
-- [ ] Local Docker build verification
+- [x] Dockerfile (multi-stage build)
+- [x] `docker-compose.yml` with split Traefik routing
+- [x] `app.yaml` manifest for `appctl`
+- [x] `.gitignore` finalized
+- [x] Local Docker build verification
 - [ ] Deployment to `demos.roadtotech.me`
 - [ ] Post-deployment verification
 - [ ] Authelia admin route verification

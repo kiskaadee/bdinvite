@@ -1,0 +1,18 @@
+name: "bdinvite"
+aliases:
+  - "birthday"
+  - "invite"
+domain: "demos.roadtotech.me"
+description: "Interactive Digital Birthday Invitation with RSVP"
+visible: true
+auth: false
+networks:
+  - proxy-net
+env:
+  BASE_PATH: "/birthday"
+homepage:
+  title: "Birthday Invite"
+  group: "Applications"
+  icon: "party.png"
+  container: "bdinvite"
+  weight: 30

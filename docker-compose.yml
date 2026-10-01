@@ -1,0 +1,41 @@
+services:
+  bdinvite:
+    build: .
+    container_name: bdinvite
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - BASE_PATH=/birthday
+    networks:
+      - proxy-net
+    labels:
+      - "diun.enable=false"
+      - "traefik.enable=true"
+
+      # Public router (invitation + public API)
+      - "traefik.http.routers.bdinvite-public.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday`)"
+      - "traefik.http.routers.bdinvite-public.entrypoints=websecure"
+      - "traefik.http.routers.bdinvite-public.tls=true"
+      - "traefik.http.routers.bdinvite-public.priority=10"
+      - "traefik.http.routers.bdinvite-public.service=bdinvite-svc"
+
+      # Admin router (Authelia-protected)
+      - "traefik.http.routers.bdinvite-admin.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday/admin`)"
+      - "traefik.http.routers.bdinvite-admin.entrypoints=websecure"
+      - "traefik.http.routers.bdinvite-admin.tls=true"
+      - "traefik.http.routers.bdinvite-admin.priority=20"
+      - "traefik.http.routers.bdinvite-admin.middlewares=authelia-auth@docker"
+      - "traefik.http.routers.bdinvite-admin.service=bdinvite-svc"
+
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.bdinvite-red.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday`)"
+      - "traefik.http.routers.bdinvite-red.entrypoints=web"
+      - "traefik.http.routers.bdinvite-red.middlewares=https-redirect@docker"
+
+      # Service target
+      - "traefik.http.services.bdinvite-svc.loadbalancer.server.port=8000"
+
+networks:
+  proxy-net:
+    external: true
