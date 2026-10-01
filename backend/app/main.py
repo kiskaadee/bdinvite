@@ -101,6 +101,11 @@ if os.path.isdir(ASSETS_DIR):
 
 
 @app.get("/birthday", include_in_schema=False)
+async def redirect_birthday_slash():
+    return RedirectResponse(url="/birthday/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
+@app.get("/birthday/", include_in_schema=False)
 @app.get("/birthday/{full_path:path}", include_in_schema=False)
 async def spa_catch_all(full_path: str = ""):
     if full_path:

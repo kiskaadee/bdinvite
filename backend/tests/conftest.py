@@ -1,11 +1,12 @@
 import pytest
-from app.database import Base, get_db
-from app.main import app
-from app.services.config import seed_default_config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+from app.database import Base, get_db
+from app.main import app
+from app.services.config import seed_default_config
 
 # Shared in-memory SQLite for testing via StaticPool
 engine = create_engine(

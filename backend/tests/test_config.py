@@ -101,8 +101,12 @@ def test_update_config_invalid_timezone(client):
 
 
 def test_spa_catch_all(client):
-    res = client.get("/birthday")
-    assert res.status_code == 200
+    res = client.get("/birthday", follow_redirects=False)
+    assert res.status_code == 307
+    assert res.headers["location"] == "/birthday/"
+
+    res_followed = client.get("/birthday", follow_redirects=True)
+    assert res_followed.status_code == 200
 
     res_subpath = client.get("/birthday/admin")
     assert res_subpath.status_code == 200
