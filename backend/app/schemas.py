@@ -1,9 +1,10 @@
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+
 
 
 def normalize_phone(raw: str) -> str:
@@ -174,6 +175,13 @@ class RSVPAdminItem(BaseModel):
     created_at: datetime = Field(..., description="Marca de tiempo UTC de la confirmación")
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.isoformat()
+
 
 
 class RSVPListResponse(BaseModel):
@@ -372,6 +380,15 @@ class InvitationConfigResponse(InvitationConfigBase):
     updated_at: datetime | None = Field(default=None, description="Última modificación en UTC")
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, dt: datetime | None) -> str | None:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.isoformat()
+
 
 
 class GenerateMapPreviewRequest(BaseModel):

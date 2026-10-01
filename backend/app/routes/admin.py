@@ -171,7 +171,10 @@ def export_rsvps_csv(
     writer.writerow(["name", "phone", "email", "created_at"])
 
     for item in rsvps:
-        created_iso = item.created_at.isoformat() if item.created_at else ""
+        created_iso = ""
+        if item.created_at:
+            dt = item.created_at if item.created_at.tzinfo else item.created_at.replace(tzinfo=UTC)
+            created_iso = dt.isoformat()
         writer.writerow([item.name, item.phone, item.email or "", created_iso])
 
     csv_content = output.getvalue()

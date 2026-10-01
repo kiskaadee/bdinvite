@@ -7,9 +7,11 @@ import {
 } from "../api/client";
 import { Button } from "../components/Button";
 import { Spinner } from "../components/Spinner";
+import { useConfig } from "../hooks/useConfig";
 import type { RSVPAdminItem } from "../types/config";
 
 export function RsvpTable() {
+  const { config } = useConfig();
   const [rsvps, setRsvps] = useState<RSVPAdminItem[]>([]);
   const [count, setCount] = useState<number>(0);
   const [search, setSearch] = useState<string>("");
@@ -45,8 +47,14 @@ export function RsvpTable() {
   function formatDate(isoStr: string) {
     if (!isoStr) return "—";
     try {
-      const d = new Date(isoStr);
+      // Ensure ISO string without an explicit offset is treated as UTC
+      const normalizedIso =
+        !isoStr.endsWith("Z") && !isoStr.includes("+") && !isoStr.includes("-", 10)
+          ? `${isoStr}Z`
+          : isoStr;
+      const d = new Date(normalizedIso);
       return d.toLocaleDateString("es-CO", {
+        timeZone: config?.event_timezone || "America/Bogota",
         year: "numeric",
         month: "short",
         day: "numeric",
