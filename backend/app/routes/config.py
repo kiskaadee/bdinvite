@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..schemas import InvitationConfigResponse
+from ..schemas import InvitationConfigResponse, RSVPErrorResponse
 from ..services.config import get_config, seed_default_config
 
 router = APIRouter(tags=["Config"])
@@ -13,7 +13,25 @@ router = APIRouter(tags=["Config"])
 DbDep = Annotated[Session, Depends(get_db)]
 
 
-@router.get("/config", response_model=InvitationConfigResponse)
+@router.get(
+    "/config",
+    response_model=InvitationConfigResponse,
+    summary="Obtener configuración de la invitación",
+    description=(
+        "Retorna la configuración singleton actual del evento para ser renderizada en la "
+        "experiencia web pública del invitado (textos, homenajeado, coordenadas de tiempo y lugar)."
+    ),
+    responses={
+        200: {
+            "model": InvitationConfigResponse,
+            "description": "Configuración del evento obtenida correctamente.",
+        },
+        500: {
+            "model": RSVPErrorResponse,
+            "description": "Fallo al inicializar o consultar el registro singleton.",
+        },
+    },
+)
 def read_config(db: DbDep):
     config = get_config(db)
     if not config:

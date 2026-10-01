@@ -7,9 +7,26 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RSVPCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    phone: str = Field(..., min_length=1, max_length=50)
-    email: str | None = Field(default=None, max_length=255)
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Nombre completo del invitado",
+        examples=["Andrés García"],
+    )
+    phone: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Número móvil en formato colombiano (10 dígitos, con o sin prefijo +57)",
+        examples=["+57 300 123 4567"],
+    )
+    email: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Correo electrónico opcional para confirmación y recordatorios",
+        examples=["andres@example.com"],
+    )
 
     @field_validator("name")
     @classmethod
@@ -27,7 +44,6 @@ class RSVPCreate(BaseModel):
         cleaned = v.strip()
         if not cleaned:
             return None
-        # Basic email regex
         email_regex = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
         if not re.match(email_regex, cleaned):
             raise ValueError("Formato de correo electrónico inválido")
@@ -35,60 +51,199 @@ class RSVPCreate(BaseModel):
 
 
 class RSVPSuccessResponse(BaseModel):
-    result: Literal["SUCCESS"] = "SUCCESS"
-    name: str
+    result: Literal["SUCCESS"] = Field(
+        default="SUCCESS",
+        description="Discriminador semántico de confirmación exitosa",
+    )
+    name: str = Field(
+        ...,
+        description="Nombre del invitado registrado",
+        examples=["Andrés García"],
+    )
 
 
 class RSVPDuplicateResponse(BaseModel):
-    result: Literal["DUPLICATE"] = "DUPLICATE"
+    result: Literal["DUPLICATE"] = Field(
+        default="DUPLICATE",
+        description="Indica que el número de teléfono móvil ya tiene una confirmación registrada",
+    )
 
 
 class RSVPValidationErrorResponse(BaseModel):
-    result: Literal["VALIDATION_ERROR"] = "VALIDATION_ERROR"
-    errors: dict[str, str]
+    result: Literal["VALIDATION_ERROR"] = Field(
+        default="VALIDATION_ERROR",
+        description="Indica error de validación en los datos enviados",
+    )
+    errors: dict[str, str] = Field(
+        ...,
+        description="Mapa de nombres de campos con sus respectivos mensajes de error",
+        examples=[{"phone": "Formato de teléfono inválido"}],
+    )
 
 
 class RSVPErrorResponse(BaseModel):
-    result: Literal["ERROR"] = "ERROR"
+    result: Literal["ERROR"] = Field(
+        default="ERROR",
+        description="Error interno no controlado durante el procesamiento",
+    )
 
 
 class RSVPAdminItem(BaseModel):
-    id: int
-    name: str
-    phone: str
-    email: str | None
-    created_at: datetime
+    id: int = Field(..., description="Identificador único del registro en base de datos", examples=[1])
+    name: str = Field(..., description="Nombre completo del asistente", examples=["Ana García"])
+    phone: str = Field(..., description="Número telefónico normalizado a 10 dígitos", examples=["3001234567"])
+    email: str | None = Field(default=None, description="Correo electrónico registrado", examples=["ana@example.com"])
+    created_at: datetime = Field(..., description="Marca de tiempo UTC de la confirmación")
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class RSVPListResponse(BaseModel):
-    count: int
-    rsvps: list[RSVPAdminItem]
+    count: int = Field(..., description="Cantidad total de confirmaciones encontradas", examples=[37])
+    rsvps: list[RSVPAdminItem] = Field(..., description="Lista de asistentes confirmados")
 
 
 class InvitationConfigBase(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    invitation_text: str = Field(..., min_length=1, max_length=500)
-    honoree_name: str = Field(..., min_length=1, max_length=200)
-    event_date: str = Field(..., description="ISO 8601 Date YYYY-MM-DD")
-    event_time: str = Field(..., description="24-hour time HH:MM")
-    event_timezone: str = Field(..., description="IANA timezone identifier")
-    address_name: str = Field(..., min_length=1, max_length=200)
-    address_lines: str = Field(..., min_length=1)
-    map_preview_url: str = Field(..., min_length=1, max_length=500)
-    map_url: str = Field(..., min_length=1, max_length=500)
-    rsvp_heading: str = Field(..., min_length=1, max_length=100)
-    rsvp_cta: str = Field(..., min_length=1, max_length=100)
-    submit_label: str = Field(..., min_length=1, max_length=100)
-    msg_success: str = Field(..., min_length=1, max_length=300)
-    msg_success_greeting: str = Field(..., min_length=1, max_length=100)
-    msg_duplicate: str = Field(..., min_length=1, max_length=300)
-    msg_error: str = Field(..., min_length=1, max_length=300)
-    msg_config_error: str = Field(..., min_length=1, max_length=300)
-    countdown_label: str = Field(..., min_length=1, max_length=100)
-    countdown_in_progress: str = Field(..., min_length=1, max_length=100)
-    countdown_finished: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Título principal de la portada (tipografía script grande)",
+        examples=["Birthday Party"],
+    )
+    invitation_text: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Texto introductorio de la invitación",
+        examples=["You're invited to the birthday party honoring"],
+    )
+    honoree_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Nombre del homenajeado(a)",
+        examples=["Isabelle Snow"],
+    )
+    event_date: str = Field(
+        ...,
+        description="Fecha del evento en formato ISO 8601 (YYYY-MM-DD)",
+        examples=["2026-10-28"],
+    )
+    event_time: str = Field(
+        ...,
+        description="Hora de inicio del evento en formato 24 horas (HH:MM)",
+        examples=["19:00"],
+    )
+    event_timezone: str = Field(
+        ...,
+        description="Identificador de zona horaria IANA para el cálculo exacto de la cuenta regresiva",
+        examples=["America/Bogota"],
+    )
+    address_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Nombre del restaurante, salón o recinto",
+        examples=["Fresco Ristorante"],
+    )
+    address_lines: str = Field(
+        ...,
+        min_length=1,
+        description="Líneas de dirección del lugar (separadas por salto de línea)",
+        examples=["514 S Brand Blvd\nGlendale, CA 91204"],
+    )
+    map_preview_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="URL de la imagen miniatura que se muestra en el widget circular",
+        examples=["https://tile.openstreetmap.org/15/8802/13443.png"],
+    )
+    map_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Enlace externo a Google Maps u otro servicio de navegación",
+        examples=["https://maps.google.com/?q=Fresco+Ristorante+Glendale+CA"],
+    )
+    rsvp_heading: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Encabezado del formulario de confirmación",
+        examples=["¿Nos vemos?"],
+    )
+    rsvp_cta: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Texto del botón CTA en la portada que desplaza al formulario",
+        examples=["CONFIRMA TU ASISTENCIA"],
+    )
+    submit_label: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Texto del botón de envío del formulario",
+        examples=["TE VEO AHÍ"],
+    )
+    msg_success: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="Mensaje principal tras confirmar asistencia",
+        examples=["¡Perfecto! Tu asistencia ha sido confirmada."],
+    )
+    msg_success_greeting: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Saludo personalizado; {name} se reemplaza con el nombre del invitado",
+        examples=["Gracias, {name}."],
+    )
+    msg_duplicate: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="Mensaje mostrado si el número ya está registrado",
+        examples=["Parece que ya tenemos tus datos registrados."],
+    )
+    msg_error: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="Mensaje en caso de fallo general del servidor",
+        examples=["No pudimos registrar tu asistencia. Inténtalo nuevamente."],
+    )
+    msg_config_error: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="Mensaje si la configuración no puede cargarse en el navegador",
+        examples=["No pudimos cargar la invitación. Inténtalo nuevamente."],
+    )
+    countdown_label: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Etiqueta superior del contador regresivo",
+        examples=["NOS VEMOS EN"],
+    )
+    countdown_in_progress: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Texto mostrado cuando el evento está ocurriendo en tiempo real",
+        examples=["EVENTO EN CURSO"],
+    )
+    countdown_finished: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Texto mostrado cuando el evento ha culminado",
+        examples=["EVENTO FINALIZADO"],
+    )
 
     @field_validator("event_date")
     @classmethod
@@ -126,7 +281,7 @@ class InvitationConfigUpdate(InvitationConfigBase):
 
 
 class InvitationConfigResponse(InvitationConfigBase):
-    id: int = 1
-    updated_at: datetime | None = None
+    id: int = Field(default=1, description="Identificador único del registro singleton (siempre 1)")
+    updated_at: datetime | None = Field(default=None, description="Última modificación en UTC")
 
     model_config = ConfigDict(from_attributes=True)

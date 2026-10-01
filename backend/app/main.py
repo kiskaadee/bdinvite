@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .database import Base, SessionLocal, engine
@@ -25,10 +25,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="Birthday Invitation API",
+    version="1.0.0",
+    description=(
+        "API REST para la invitación interactiva de cumpleaños con sistema RSVP.\n\n"
+        "### Arquitectura de Seguridad\n"
+        "- **Rutas Públicas (`/birthday/api/*`)**: Acceso abierto para los invitados.\n"
+        "- **Rutas Administrativas (`/birthday/api/admin/*`)**: Protegidas por **Authelia ForwardAuth** "
+        "a nivel de proxy inverso (Traefik). Cada endpoint valida de forma independiente la cabecera `Remote-User`."
+    ),
+    openapi_tags=[
+        {
+            "name": "RSVP",
+            "description": "Registro y validación de confirmación de asistencia para invitados.",
+        },
+        {
+            "name": "Config",
+            "description": "Consulta pública de la configuración singleton del evento.",
+        },
+        {
+            "name": "Admin",
+            "description": "Gestión de asistentes, descarga CSV y edición de contenido protegida por Authelia.",
+        },
+    ],
     lifespan=lifespan,
     docs_url="/birthday/api/docs",
     openapi_url="/birthday/api/openapi.json",
 )
+
+
+@app.get("/docs", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url="/birthday/api/docs")
+
 
 # CORS configuration
 app.add_middleware(
@@ -72,8 +100,8 @@ if os.path.isdir(ASSETS_DIR):
     app.mount("/birthday/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
-@app.get("/birthday")
-@app.get("/birthday/{full_path:path}")
+@app.get("/birthday", include_in_schema=False)
+@app.get("/birthday/{full_path:path}", include_in_schema=False)
 async def spa_catch_all(full_path: str = ""):
     if full_path:
         requested_file = os.path.join(STATIC_DIR, full_path)
