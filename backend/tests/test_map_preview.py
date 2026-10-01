@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 
@@ -15,6 +15,7 @@ ADMIN_HEADERS = {"Remote-User": "kiskaadee"}
 
 def test_is_google_maps_host():
     assert is_google_maps_host("maps.app.goo.gl")
+    assert is_google_maps_host("share.google")
     assert is_google_maps_host("goo.gl")
     assert is_google_maps_host("maps.google.com")
     assert is_google_maps_host("google.com")
@@ -90,7 +91,7 @@ def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client
     assert "/birthday/api/map-preview.png" in data["map_preview_url"]
     assert data["lat"] == 34.1432
     assert data["lng"] == -118.2551
-    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1,-118.2")
+    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1,-118.2", fallback_query=ANY)
     mock_generate.assert_called_once_with(34.1432, -118.2551)
 
 
@@ -120,7 +121,7 @@ def test_config_update_triggers_generator_only_when_map_url_changes(mock_generat
     assert resp.status_code == 200
     assert resp.json()["map_url"] == "https://maps.google.com/?q=34.1432,-118.2551"
     assert resp.json()["map_preview_url"] == "/birthday/api/map-preview.png"
-    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1432,-118.2551")
+    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1432,-118.2551", fallback_query=ANY)
     mock_generate.assert_called_once_with(34.1432, -118.2551)
 
 

@@ -166,7 +166,10 @@ async def update_admin_config(
     # Condition: Trigger generation ONLY if map_url was changed
     if current.map_url != update_in.map_url:
         try:
-            lat, lng, _ = await resolve_google_maps_coordinates(update_in.map_url)
+            fallback = f"{update_in.address_lines}\n{update_in.address_name}"
+            lat, lng, _ = await resolve_google_maps_coordinates(
+                update_in.map_url, fallback_query=fallback
+            )
             await generate_map_preview_image(lat, lng)
             update_in.map_preview_url = f"{settings.BASE_PATH}/api/map-preview.png"
         except ValueError as err:
@@ -202,9 +205,9 @@ async def regenerate_map_preview_endpoint(
     db: DbDep,
     payload: GenerateMapPreviewRequest | None = None,
 ):
+    current = get_config(db)
     target_url = payload.map_url.strip() if (payload and payload.map_url) else None
     if not target_url:
-        current = get_config(db)
         if not current or not current.map_url:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -213,8 +216,12 @@ async def regenerate_map_preview_endpoint(
         target_url = current.map_url
 
     try:
-        lat, lng, _ = await resolve_google_maps_coordinates(target_url)
+        fallback = f"{current.address_lines}\n{current.address_name}" if current else None
+        lat, lng, _ = await resolve_google_maps_coordinates(
+            target_url, fallback_query=fallback
+        )
         await generate_map_preview_image(lat, lng)
+
         timestamp = int(datetime.now(UTC).timestamp())
         return GenerateMapPreviewResponse(
             map_preview_url=f"{settings.BASE_PATH}/api/map-preview.png?t={timestamp}",

@@ -21,13 +21,13 @@ GOOGLE_MAPS_DOMAINS = (
 
 
 def is_google_maps_host(host: str) -> bool:
-    """Check if the hostname belongs to Google Maps or Goo.gl shortlinks."""
+    """Check if the hostname belongs to Google Maps, Google share links, or Goo.gl shortlinks."""
     clean_host = host.lower().strip()
-    if clean_host in ("maps.app.goo.gl", "goo.gl"):
+    if clean_host in ("maps.app.goo.gl", "goo.gl", "share.google"):
         return True
     if clean_host.startswith("maps.google."):
         return True
-    if clean_host == "google.com" or clean_host.endswith(".google.com"):
+    if clean_host == "google.com" or clean_host.endswith(".google.com") or clean_host.endswith(".google"):
         return True
     # Regional domains like google.es, google.co, google.com.co
     if re.match(r"^(?:www\.)?google\.[a-z.]+$", clean_host):
@@ -86,7 +86,10 @@ def extract_coordinates_from_text(text: str) -> tuple[float, float] | None:
     return None
 
 
-async def resolve_google_maps_coordinates(map_url: str) -> tuple[float, float, str]:
+async def resolve_google_maps_coordinates(
+    map_url: str,
+    fallback_query: str | None = None,
+) -> tuple[float, float, str]:
     """
     Validate and resolve a Google Maps URL, following redirects if necessary,
     and return (latitude, longitude, resolved_url).
@@ -99,7 +102,7 @@ async def resolve_google_maps_coordinates(map_url: str) -> tuple[float, float, s
     if direct_coords:
         return direct_coords[0], direct_coords[1], clean_url
 
-    # Follow HTTP redirects to resolve short links (maps.app.goo.gl, etc.)
+    # Follow HTTP redirects to resolve short links (maps.app.goo.gl, share.google, etc.)
     resolved_url = clean_url
     async with httpx.AsyncClient(
         follow_redirects=True,
@@ -133,23 +136,39 @@ async def resolve_google_maps_coordinates(map_url: str) -> tuple[float, float, s
         place_part = parsed.path.split("/place/")[1].split("/")[0]
         query_text = unquote(place_part.replace("+", " "))
 
-    if query_text:
-        # Attempt open geocoding with OpenStreetMap Nominatim
+    # Build search candidates for geocoding
+    candidates: list[str] = []
+    clean_fallback = fallback_query.strip() if fallback_query else None
+
+    if query_text and clean_fallback:
+        candidates.append(f"{query_text}, {clean_fallback}")
+    if clean_fallback:
+        for line in clean_fallback.splitlines():
+            line_str = line.strip().strip(",")
+            if line_str and line_str not in candidates:
+                candidates.append(line_str)
+        if clean_fallback not in candidates:
+            candidates.append(clean_fallback)
+    if query_text and query_text not in candidates:
+        candidates.append(query_text)
+
+    if candidates:
         async with httpx.AsyncClient(timeout=8.0, headers={"User-Agent": USER_AGENT}) as client:
-            try:
-                nom_res = await client.get(
-                    "https://nominatim.openstreetmap.org/search",
-                    params={"q": query_text, "format": "json", "limit": 1},
-                )
-                if nom_res.status_code == 200:
-                    results = nom_res.json()
-                    if results and isinstance(results, list) and len(results) > 0:
-                        lat = float(results[0]["lat"])
-                        lng = float(results[0]["lon"])
-                        if -90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0:
-                            return lat, lng, resolved_url
-            except Exception:
-                pass
+            for candidate in candidates:
+                try:
+                    nom_res = await client.get(
+                        "https://nominatim.openstreetmap.org/search",
+                        params={"q": candidate, "format": "json", "limit": 1},
+                    )
+                    if nom_res.status_code == 200:
+                        results = nom_res.json()
+                        if results and isinstance(results, list) and len(results) > 0:
+                            lat = float(results[0]["lat"])
+                            lng = float(results[0]["lon"])
+                            if -90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0:
+                                return lat, lng, resolved_url
+                except Exception:
+                    pass
 
     raise ValueError(
         "No se pudieron extraer las coordenadas de la URL de Google Maps. "
