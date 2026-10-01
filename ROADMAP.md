@@ -73,7 +73,7 @@
 ## Future
 
 - [ ] Font selection (visual comparison of candidates)
-- [ ] Application-owned map preview asset (replace URL with static file)
+- [x] Application-owned map preview asset (replace URL with static file)
 - [ ] Miniature rendered invitation preview in admin config editor
 - [ ] Enhanced admin features (edit/delete RSVP, attendance status, guest count)
 - [ ] CSV import

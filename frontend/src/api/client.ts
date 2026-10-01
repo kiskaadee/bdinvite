@@ -86,3 +86,34 @@ export async function updateAdminConfig(
 export function getExportCsvUrl(): string {
   return `${BASE_API}/admin/export`;
 }
+
+export interface GenerateMapPreviewResponse {
+  map_preview_url: string;
+  lat: number;
+  lng: number;
+  message: string;
+}
+
+export async function regenerateMapPreview(
+  mapUrl?: string,
+): Promise<GenerateMapPreviewResponse> {
+  const res = await fetch(`${BASE_API}/admin/map-preview/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ map_url: mapUrl }),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const msg =
+      errorJson?.detail ||
+      (errorJson?.errors
+        ? Object.values(errorJson.errors).join(", ")
+        : `HTTP ${res.status}`);
+    throw new Error(msg || "Error al regenerar vista previa del mapa.");
+  }
+  return res.json();
+}

@@ -275,6 +275,15 @@ class InvitationConfigBase(BaseModel):
             raise ValueError(f"Zona horaria IANA desconocida: {clean}")
         return clean
 
+    @field_validator("map_url")
+    @classmethod
+    def validate_map_url(cls, v: str) -> str:
+        from .services.map_preview import validate_google_maps_url_format
+
+        clean = v.strip()
+        validate_google_maps_url_format(clean)
+        return clean
+
 
 class InvitationConfigUpdate(InvitationConfigBase):
     pass
@@ -285,3 +294,18 @@ class InvitationConfigResponse(InvitationConfigBase):
     updated_at: datetime | None = Field(default=None, description="Última modificación en UTC")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GenerateMapPreviewRequest(BaseModel):
+    map_url: str | None = Field(
+        default=None,
+        description="URL de Google Maps a procesar. Si se omite, se usa la configurada actualmente.",
+        examples=["https://maps.app.goo.gl/abcd1234efgh5678"],
+    )
+
+
+class GenerateMapPreviewResponse(BaseModel):
+    map_preview_url: str = Field(description="URL para acceder a la imagen de vista previa generada")
+    lat: float = Field(description="Latitud resuelta")
+    lng: float = Field(description="Longitud resuelta")
+    message: str = Field(default="Vista previa generada con éxito")

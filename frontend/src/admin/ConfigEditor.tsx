@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { fetchAdminConfig, updateAdminConfig } from "../api/client";
+import { fetchAdminConfig, regenerateMapPreview, updateAdminConfig } from "../api/client";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Spinner } from "../components/Spinner";
@@ -9,6 +9,11 @@ export function ConfigEditor() {
   const [formData, setFormData] = useState<InvitationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [regeneratingMap, setRegeneratingMap] = useState(false);
+  const [mapNotice, setMapNotice] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     msg: string;
@@ -55,6 +60,28 @@ export function ConfigEditor() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRegenerateMap() {
+    if (!formData?.map_url || regeneratingMap) return;
+    setRegeneratingMap(true);
+    setMapNotice(null);
+
+    try {
+      const res = await regenerateMapPreview(formData.map_url);
+      setFormData({ ...formData, map_preview_url: res.map_preview_url });
+      setMapNotice({
+        type: "success",
+        msg: `¡Vista previa regenerada con éxito! (Coordenadas: ${res.lat.toFixed(4)}, ${res.lng.toFixed(4)})`,
+      });
+    } catch (err) {
+      setMapNotice({
+        type: "error",
+        msg: err instanceof Error ? err.message : "Error al regenerar el mapa.",
+      });
+    } finally {
+      setRegeneratingMap(false);
     }
   }
 
@@ -226,12 +253,116 @@ export function ConfigEditor() {
             />
           </div>
 
-          <Field
-            label="URL de Imagen Previa del Mapa (map_preview_url)"
-            value={formData.map_preview_url}
-            onChange={(e) => handleChange("map_preview_url", e.target.value)}
-            required
-          />
+          <div
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(212, 168, 67, 0.2)",
+              borderRadius: "6px",
+              padding: "1.2rem",
+              marginBottom: "1.4rem",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "1.5rem",
+              alignItems: "center",
+            }}
+          >
+            {/* Visual circular thumbnail preview */}
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                overflow: "hidden",
+                border: "1.5px solid var(--color-gold)",
+                backgroundColor: "#151515",
+                flexShrink: 0,
+                boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
+              }}
+            >
+              {formData.map_preview_url ? (
+                <img
+                  src={formData.map_preview_url}
+                  alt="Vista previa mapa"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    fontSize: "0.7rem",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  Sin mapa
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minWidth: "240px" }}>
+              <Field
+                label="URL de Imagen Previa del Mapa (map_preview_url)"
+                value={formData.map_preview_url}
+                onChange={(e) => handleChange("map_preview_url", e.target.value)}
+                required
+              />
+              <div
+                style={{
+                  marginTop: "0.8rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={regeneratingMap || !formData.map_url}
+                  onClick={handleRegenerateMap}
+                  style={{ padding: "0.55rem 1.1rem", fontSize: "0.75rem" }}
+                >
+                  {regeneratingMap ? (
+                    <>
+                      <Spinner size={14} />
+                      <span style={{ marginLeft: "0.5rem" }}>Generando...</span>
+                    </>
+                  ) : (
+                    "🗺️ Regenerar Mapa"
+                  )}
+                </Button>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  Genera la imagen en disco sin guardar aún en la BD.
+                </span>
+              </div>
+              {mapNotice && (
+                <div
+                  style={{
+                    marginTop: "0.6rem",
+                    fontSize: "0.8rem",
+                    color:
+                      mapNotice.type === "success"
+                        ? "var(--color-gold)"
+                        : "var(--color-error)",
+                  }}
+                >
+                  {mapNotice.msg}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div
             style={{

@@ -131,12 +131,14 @@ flowchart LR
     subgraph Public
         A["GET /birthday/api/config"]
         B["POST /birthday/api/rsvp"]
+        G["GET /birthday/api/map-preview.png"]
     end
     subgraph Admin["Admin (Remote-User required)"]
         C["GET /birthday/api/admin/rsvps"]
         D["GET /birthday/api/admin/export"]
         E["GET /birthday/api/admin/config"]
         F["PUT /birthday/api/admin/config"]
+        H["POST /birthday/api/admin/map-preview/generate"]
     end
 ```
 
@@ -149,6 +151,14 @@ Serves the invitation configuration to the guest frontend.
 - **Auth:** None (public)
 - **Response `200`:** Full `InvitationConfig` object — all fields from the config table.
 - **Response `500`:** `{"result": "ERROR"}` (if no config row exists — should not happen after seeding)
+
+#### `GET /birthday/api/map-preview.png`
+
+Serves the locally generated OpenStreetMap static crop image centered on the event venue.
+
+- **Auth:** None (public)
+- **Response `200`:** `image/png` static file with caching headers (`Cache-Control: public, max-age=300`).
+- **Fallback:** 307 Redirect to default OSM tile if the image file has not yet been generated.
 
 #### `POST /birthday/api/rsvp`
 
@@ -245,8 +255,28 @@ Update configuration (full object replacement).
   - `event_date` is a valid ISO 8601 date
   - `event_time` is a valid `HH:MM` (24-hour) string
   - `event_timezone` is a valid IANA timezone identifier
-  - URL fields are valid URLs
+  - `map_url` is a valid Google Maps URL format (`maps.app.goo.gl`, `goo.gl`, or `google.com/maps`)
   - Text fields are non-empty where required
+- **Conditional Map Regeneration:**
+  - If `map_url` changed compared to the stored singleton, the backend automatically resolves destination coordinates, generates a fresh OpenStreetMap stitched preview PNG on disk, and points `map_preview_url` to `/birthday/api/map-preview.png`.
+  - If `map_url` did not change, no external network calls or image generation occur.
+
+#### `POST /birthday/api/admin/map-preview/generate`
+
+Regenerates the venue map preview image on disk without requiring full configuration updates or database writes.
+
+- **Request body:** Optional JSON `{"map_url": "..."}`. If omitted, uses the currently persisted `map_url`.
+- **Response `200`:**
+  ```json
+  {
+    "map_preview_url": "/birthday/api/map-preview.png?t=1759338600",
+    "lat": 34.1432,
+    "lng": -118.2551,
+    "message": "Vista previa del mapa generada con éxito."
+  }
+  ```
+- **Error `422`:** If the provided URL cannot be parsed into valid geographic coordinates.
+- **Side Effect:** Writes `data/map_preview.png` directly to disk, cache-busting via the returned timestamp.
 
 ---
 

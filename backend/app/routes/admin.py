@@ -1,17 +1,22 @@
 import csv
 import io
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
 from ..schemas import (
+    GenerateMapPreviewRequest,
+    GenerateMapPreviewResponse,
     InvitationConfigResponse,
     InvitationConfigUpdate,
     RSVPListResponse,
 )
 from ..services.config import get_config, seed_default_config, update_config
+from ..services.map_preview import generate_map_preview_image, resolve_google_maps_coordinates
 from ..services.rsvp import get_rsvps
 
 router = APIRouter(tags=["Admin"])
@@ -140,6 +145,7 @@ def get_admin_config(
     summary="Actualizar configuración de la invitación",
     description=(
         "Reemplaza los valores de la configuración singleton del evento. "
+        "Si la URL de Google Maps cambió, valida y regenera automáticamente la vista previa del mapa. "
         "Aplica validación de fecha ISO, hora en formato militar 24h y zona horaria válida IANA. "
         "Los cambios toman efecto de inmediato sin requerir recarga del contenedor."
     ),
@@ -148,10 +154,82 @@ def get_admin_config(
         **ADMIN_401,
     },
 )
-def update_admin_config(
+async def update_admin_config(
     update_in: InvitationConfigUpdate,
     admin: AdminDep,
     db: DbDep,
 ):
+    current = get_config(db)
+    if not current:
+        current = seed_default_config(db)
+
+    # Condition: Trigger generation ONLY if map_url was changed
+    if current.map_url != update_in.map_url:
+        try:
+            lat, lng, _ = await resolve_google_maps_coordinates(update_in.map_url)
+            await generate_map_preview_image(lat, lng)
+            update_in.map_preview_url = f"{settings.BASE_PATH}/api/map-preview.png"
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(err),
+            ) from err
+        except Exception as err:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al generar la vista previa del mapa: {err}",
+            ) from err
+
     updated = update_config(db, update_in)
     return updated
+
+
+@router.post(
+    "/map-preview/generate",
+    response_model=GenerateMapPreviewResponse,
+    summary="Regenerar la vista previa del mapa",
+    description=(
+        "Genera o regenera la imagen del mapa en disco para la URL provista o la configurada actualmente, "
+        "sin realizar escrituras innecesarias a la base de datos."
+    ),
+    responses={
+        200: {"model": GenerateMapPreviewResponse, "description": "Vista previa generada exitosamente."},
+        **ADMIN_401,
+    },
+)
+async def regenerate_map_preview_endpoint(
+    admin: AdminDep,
+    db: DbDep,
+    payload: GenerateMapPreviewRequest | None = None,
+):
+    target_url = payload.map_url.strip() if (payload and payload.map_url) else None
+    if not target_url:
+        current = get_config(db)
+        if not current or not current.map_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se proporcionó una URL de Google Maps ni existe una guardada en la configuración.",
+            )
+        target_url = current.map_url
+
+    try:
+        lat, lng, _ = await resolve_google_maps_coordinates(target_url)
+        await generate_map_preview_image(lat, lng)
+        timestamp = int(datetime.now(UTC).timestamp())
+        return GenerateMapPreviewResponse(
+            map_preview_url=f"{settings.BASE_PATH}/api/map-preview.png?t={timestamp}",
+            lat=lat,
+            lng=lng,
+            message="Vista previa del mapa generada exitosamente.",
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(err),
+        ) from err
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al generar la vista previa del mapa: {err}",
+        ) from err
+

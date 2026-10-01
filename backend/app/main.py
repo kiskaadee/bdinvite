@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from .config import settings
 from .database import Base, SessionLocal, engine
 from .routes import admin, config, rsvp
 from .services.config import seed_default_config
@@ -90,6 +91,25 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(rsvp.router, prefix="/birthday/api")
 app.include_router(config.router, prefix="/birthday/api")
 app.include_router(admin.router, prefix="/birthday/api/admin")
+
+
+@app.get(
+    "/birthday/api/map-preview.png",
+    tags=["Config"],
+    summary="Obtener imagen de vista previa del mapa generada",
+    description="Retorna el archivo PNG de vista previa del mapa generado centrado en la ubicación.",
+)
+async def get_map_preview():
+    if settings.map_preview_file.exists():
+        return FileResponse(
+            settings.map_preview_file,
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    return RedirectResponse(
+        url="https://tile.openstreetmap.org/15/8802/13443.png",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
 
 
 # Static files and SPA serving
