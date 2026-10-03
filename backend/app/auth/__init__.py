@@ -1,3 +1,4 @@
+from .adapter import OIDCAuthAdapter
 from .identity import Identity
 from .oidc import (
     AuthorizationRequest,
@@ -26,6 +27,7 @@ __all__ = [
     "InvalidStateError",
     "InvalidTokenError",
     "MismatchedNonceError",
+    "OIDCAuthAdapter",
     "OIDCClient",
     "OIDCConfig",
     "OIDCError",
