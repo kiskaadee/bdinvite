@@ -45,6 +45,13 @@ class TokenValidationError(OIDCError):
         super().__init__(status_code=401, detail=detail)
 
 
+class InvalidCodeVerifierError(OIDCError):
+    """Raised when PKCE code_verifier is missing, invalid, or rejected during token exchange."""
+
+    def __init__(self, detail: str = "Invalid or missing PKCE code_verifier") -> None:
+        super().__init__(status_code=401, detail=detail)
+
+
 def generate_code_verifier() -> str:
     """Generate a high-entropy cryptographic random string for PKCE (RFC 7636).
 
@@ -319,6 +326,9 @@ class OIDCClient:
         else:
             code_verifier = transaction_or_verifier
 
+        if not code_verifier or not isinstance(code_verifier, str) or not code_verifier.strip():
+            raise InvalidCodeVerifierError("Missing or invalid PKCE code_verifier")
+
         data = {
             "grant_type": "authorization_code",
             "code": code,
@@ -339,6 +349,11 @@ class OIDCClient:
                 data["client_id"] = self.config.client_id
                 resp = client.post(self.token_endpoint, data=data)
             if resp.status_code != 200:
+                err_text = resp.text.lower()
+                if "pkce" in err_text or "code verifier" in err_text or "code_verifier" in err_text:
+                    raise InvalidCodeVerifierError(
+                        f"PKCE code_verifier verification failed: {resp.text}"
+                    )
                 raise OIDCError(
                     status_code=resp.status_code,
                     detail=f"Token exchange failed with HTTP {resp.status_code}: {resp.text}",
@@ -357,6 +372,9 @@ class OIDCClient:
             code_verifier = transaction_or_verifier.code_verifier
         else:
             code_verifier = transaction_or_verifier
+
+        if not code_verifier or not isinstance(code_verifier, str) or not code_verifier.strip():
+            raise InvalidCodeVerifierError("Missing or invalid PKCE code_verifier")
 
         data = {
             "grant_type": "authorization_code",
@@ -378,6 +396,11 @@ class OIDCClient:
                 data["client_id"] = self.config.client_id
                 resp = await client.post(self.token_endpoint, data=data)
             if resp.status_code != 200:
+                err_text = resp.text.lower()
+                if "pkce" in err_text or "code verifier" in err_text or "code_verifier" in err_text:
+                    raise InvalidCodeVerifierError(
+                        f"PKCE code_verifier verification failed: {resp.text}"
+                    )
                 raise OIDCError(
                     status_code=resp.status_code,
                     detail=f"Token exchange failed with HTTP {resp.status_code}: {resp.text}",

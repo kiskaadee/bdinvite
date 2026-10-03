@@ -13,6 +13,7 @@ from .dependencies import (
     set_auth_adapter,
 )
 from .oidc import (
+    InvalidCodeVerifierError,
     InvalidNonceError,
     InvalidStateError,
     OIDCAuthAdapter,
@@ -40,6 +41,7 @@ __all__ = [
     "AuthenticatedUserDep",
     "CurrentIdentityDep",
     "Identity",
+    "InvalidCodeVerifierError",
     "InvalidNonceError",
     "InvalidStateError",
     "OIDCAuthAdapter",
