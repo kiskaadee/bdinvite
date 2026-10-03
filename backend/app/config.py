@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     OIDC_CLIENT_ID: str = "bdinvite-client"
     OIDC_CLIENT_SECRET: str = "bdinvite-secret"
     OIDC_REDIRECT_URI: str = "http://localhost:8000/birthday/api/auth/callback"
+    OIDC_GROUPS_CLAIM: str = "groups"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

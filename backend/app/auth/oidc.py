@@ -79,6 +79,7 @@ class OIDCConfig:
     client_secret: Optional[str] = None
     redirect_uri: str = "http://localhost:8000/birthday/api/auth/callback"
     scopes: list[str] = field(default_factory=lambda: list(DEFAULT_SCOPES))
+    groups_claim: str = "groups"
 
     def __post_init__(self) -> None:
         if not isinstance(self.issuer, str) or not self.issuer.strip():
@@ -87,7 +88,20 @@ class OIDCConfig:
             raise ValueError("OIDC client_id must be a non-empty string")
         if not isinstance(self.redirect_uri, str) or not self.redirect_uri.strip():
             raise ValueError("OIDC redirect_uri must be a non-empty string")
+        if not isinstance(self.groups_claim, str) or not self.groups_claim.strip():
+            raise ValueError("OIDC groups_claim must be a non-empty string")
         self.issuer = self.issuer.rstrip("/")
+
+
+def _extract_claim_path(claims: dict[str, Any], path: str) -> Any:
+    """Extract claim value from dictionary supporting dot-separated paths (e.g. 'realm_access.roles')."""
+    current: Any = claims
+    for part in path.split("."):
+        if isinstance(current, dict):
+            current = current.get(part)
+        else:
+            return None
+    return current
 
 
 @dataclass
@@ -160,6 +174,7 @@ class OIDCClient:
         client_secret: Optional[str] = None,
         redirect_uri: Optional[str] = None,
         scopes: Optional[list[str]] = None,
+        groups_claim: Optional[str] = None,
         discovery_doc: Optional[dict[str, Any]] = None,
         timeout: float = 10.0,
         max_state_age_seconds: float = 600.0,
@@ -175,6 +190,7 @@ class OIDCClient:
                 client_secret=client_secret,
                 redirect_uri=redirect_uri or "http://localhost:8000/birthday/api/auth/callback",
                 scopes=scopes if scopes is not None else list(DEFAULT_SCOPES),
+                groups_claim=groups_claim or "groups",
             )
 
         self.timeout = timeout
@@ -407,6 +423,7 @@ class OIDCClient:
         state: Optional[str] = None,
         code_verifier: Optional[str] = None,
         nonce: Optional[str] = None,
+        extra_token_params: Optional[dict[str, str]] = None,
     ) -> TokenResponse:
         """Exchange authorization code for tokens using PKCE code_verifier and cryptographically verify ID token."""
         if not code or not isinstance(code, str) or not code.strip():
@@ -437,6 +454,8 @@ class OIDCClient:
             "redirect_uri": self.config.redirect_uri,
             "code_verifier": resolved_verifier,
         }
+        if extra_token_params:
+            data.update(extra_token_params)
 
         auth: Optional[httpx.BasicAuth] = None
         if self.config.client_secret:
@@ -495,25 +514,128 @@ class OIDCClient:
         )
 
     def extract_identity(self, claims: dict[str, Any]) -> Identity:
-        """Map validated ID token claims into typed Identity domain model."""
+        """Map validated ID token claims into typed Identity domain model.
+
+        Extracts:
+        - sub -> Identity.subject (non-empty string required)
+        - email -> Identity.email (falls back to {sub}@{client_id}.local if not present)
+        - name -> Identity.name (optional string or None)
+        - groups_claim path -> Identity.groups (list of unique strings, defaults to [])
+        """
         subject = str(claims.get("sub", "")).strip()
         if not subject:
             raise InvalidTokenError("ID token missing required 'sub' claim")
 
-        email = claims.get("email")
-        if not email or not str(email).strip():
+        email_val = claims.get("email")
+        if email_val and isinstance(email_val, str) and email_val.strip():
+            email = email_val.strip()
+        else:
             email = f"{subject}@{self.config.client_id}.local"
 
-        name = claims.get("name")
-        groups = claims.get("groups", [])
-        if isinstance(groups, str):
-            groups = [groups]
-        elif not isinstance(groups, (list, tuple)):
+        name_val = claims.get("name")
+        name = str(name_val).strip() if name_val and isinstance(name_val, str) and name_val.strip() else None
+
+        raw_groups = _extract_claim_path(claims, self.config.groups_claim)
+        if isinstance(raw_groups, str):
+            groups = [raw_groups.strip()] if raw_groups.strip() else []
+        elif isinstance(raw_groups, (list, tuple, set)):
+            groups = [str(g).strip() for g in raw_groups if isinstance(g, str) and str(g).strip()]
+        else:
             groups = []
+
+        # Deduplicate while preserving order
+        unique_groups = list(dict.fromkeys(groups))
 
         return Identity(
             subject=subject,
-            email=str(email).strip(),
-            name=str(name).strip() if name else None,
-            groups=[str(g).strip() for g in groups if isinstance(g, str) and g.strip()],
+            email=email,
+            name=name,
+            groups=unique_groups,
         )
+
+    def extract_identity_from_token(
+        self,
+        id_token: str,
+        nonce: Optional[str] = None,
+        leeway: float = 60.0,
+    ) -> Identity:
+        """Cryptographically verify ID token and extract domain Identity with origin integrity."""
+        claims = self.verify_id_token(id_token=id_token, nonce=nonce, leeway=leeway)
+        return self.extract_identity(claims)
+
+    def authenticate_with_password(
+        self,
+        username: str,
+        password: str,
+        scopes: Optional[list[str]] = None,
+    ) -> tuple[TokenResponse, Identity]:
+        """Authenticate using resource owner password credentials against IdP and extract Identity.
+
+        Validates returned ID token cryptographically and maps claims to domain Identity.
+        """
+        if not username or not isinstance(username, str) or not username.strip():
+            raise TokenExchangeError("Username must be a non-empty string")
+        if not password or not isinstance(password, str):
+            raise TokenExchangeError("Password must be a non-empty string")
+
+        query_scopes = scopes if scopes is not None else self.config.scopes
+        data: dict[str, str] = {
+            "grant_type": "password",
+            "client_id": self.config.client_id,
+            "username": username,
+            "password": password,
+            "scope": " ".join(query_scopes),
+        }
+
+        auth: Optional[httpx.BasicAuth] = None
+        if self.config.client_secret:
+            auth = httpx.BasicAuth(self.config.client_id, self.config.client_secret)
+            data["client_secret"] = self.config.client_secret
+
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                if auth is not None:
+                    response = client.post(
+                        self.token_endpoint,
+                        data=data,
+                        auth=auth,
+                        headers={"Accept": "application/json"},
+                    )
+                else:
+                    response = client.post(
+                        self.token_endpoint,
+                        data=data,
+                        headers={"Accept": "application/json"},
+                    )
+        except Exception as e:
+            raise TokenExchangeError(f"Failed to communicate with token endpoint: {e}") from e
+
+        if response.status_code != 200:
+            raise TokenExchangeError(
+                f"Token endpoint returned HTTP {response.status_code}: {response.text}"
+            )
+
+        try:
+            token_data = response.json()
+        except Exception as e:
+            raise TokenExchangeError(f"Failed to parse token response JSON: {e}") from e
+
+        if not isinstance(token_data, dict):
+            raise TokenExchangeError("Token response JSON root must be an object")
+
+        id_token = token_data.get("id_token")
+        if not id_token or not isinstance(id_token, str):
+            raise TokenExchangeError("Token response missing 'id_token'")
+
+        claims = self.verify_id_token(id_token)
+        token_response = TokenResponse(
+            id_token=id_token,
+            access_token=token_data.get("access_token"),
+            refresh_token=token_data.get("refresh_token"),
+            token_type=token_data.get("token_type"),
+            expires_in=token_data.get("expires_in"),
+            raw=token_data,
+            claims=claims,
+        )
+        identity = self.extract_identity(claims)
+        return token_response, identity
