@@ -115,6 +115,12 @@ async def get_map_preview():
 
 # Static files and SPA serving
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
+if not os.path.isdir(STATIC_DIR):
+    frontend_dist = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    )
+    if os.path.isdir(frontend_dist):
+        STATIC_DIR = frontend_dist
 ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
 
 if os.path.isdir(ASSETS_DIR):

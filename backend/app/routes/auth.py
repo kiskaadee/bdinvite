@@ -77,7 +77,7 @@ def callback_endpoint(
     token_response = adapter.oidc_client.exchange_code(code=code, state=state)
     identity = adapter.oidc_client.extract_identity(token_response.claims)
 
-    redirect_response = RedirectResponse(url="/birthday/", status_code=status.HTTP_302_FOUND)
+    redirect_response = RedirectResponse(url="/birthday/admin", status_code=status.HTTP_302_FOUND)
     adapter.create_session(
         identity=identity,
         request=request,
