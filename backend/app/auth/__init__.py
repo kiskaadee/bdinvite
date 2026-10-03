@@ -13,6 +13,7 @@ from .identity import Identity
 from .oidc import (
     AuthorizationRequest,
     DiscoveryError,
+    InvalidPKCEError,
     InvalidStateError,
     InvalidTokenError,
     MismatchedNonceError,
@@ -45,6 +46,7 @@ __all__ = [
     "DiscoveryError",
     "Identity",
     "InMemorySessionStore",
+    "InvalidPKCEError",
     "InvalidStateError",
     "InvalidTokenError",
     "MismatchedNonceError",
