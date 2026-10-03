@@ -158,3 +158,46 @@ export async function updateAdminRsvp(
   return res.json();
 }
 
+export interface AuthUser {
+  subject: string;
+  email: string;
+  name: string | null;
+  groups: string[];
+}
+
+export interface SessionResponse {
+  authenticated: boolean;
+  identity: AuthUser | null;
+}
+
+export async function fetchSession(): Promise<SessionResponse> {
+  try {
+    const res = await fetch(`${BASE_API}/auth/me`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      return { authenticated: false, identity: null };
+    }
+    const data = await res.json();
+    if ("authenticated" in data) {
+      return data as SessionResponse;
+    }
+    if (data && (data.subject || data.email)) {
+      return {
+        authenticated: true,
+        identity: data as AuthUser,
+      };
+    }
+    return { authenticated: false, identity: null };
+  } catch {
+    return { authenticated: false, identity: null };
+  }
+}
+
+export async function logoutUser(): Promise<void> {
+  await fetch(`${BASE_API}/auth/logout`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+}
+

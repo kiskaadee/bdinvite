@@ -41,7 +41,7 @@ def callback(
     code: str = Query(..., description="Authorization code from IdP"),
     state: str = Query(..., description="CSRF state parameter"),
 ) -> Response:
-    target_url = "/birthday/"
+    target_url = "/birthday/admin"
     response = RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
     adapter.handle_callback(
         code=code,
@@ -62,7 +62,11 @@ def callback(
     summary="Logout user session (API)",
     description="Revokes the session on server/storage, clears browser cookie (Max-Age=0), and returns JSON confirmation.",
 )
-def logout(request: Request, adapter: AuthAdapterDep) -> Response:
+def logout(
+    request: Request,
+    adapter: AuthAdapterDep,
+    redirect_uri: Optional[str] = Query(None, description="Optional post-logout redirect URI"),
+) -> Response:
     accept_header = request.headers.get("accept", "")
     if request.method == "POST" or "application/json" in accept_header:
         json_resp = JSONResponse(
@@ -71,7 +75,9 @@ def logout(request: Request, adapter: AuthAdapterDep) -> Response:
         )
         return adapter.logout(request, response=json_resp)
 
-    return adapter.logout(request)
+    target = redirect_uri or "/birthday/admin?logged_out=1"
+    redirect_resp = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    return adapter.logout(request, response=redirect_resp)
 
 
 @router.get(
