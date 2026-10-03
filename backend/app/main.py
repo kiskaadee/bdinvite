@@ -31,8 +31,8 @@ app = FastAPI(
         "API REST para la invitación interactiva de cumpleaños con sistema RSVP.\n\n"
         "### Arquitectura de Seguridad\n"
         "- **Rutas Públicas (`/birthday/api/*`)**: Acceso abierto para los invitados.\n"
-        "- **Rutas Administrativas (`/birthday/api/admin/*`)**: Protegidas por **Authelia ForwardAuth** "
-        "a nivel de proxy inverso (Traefik). Cada endpoint valida de forma independiente la cabecera `Remote-User`."
+        "- **Rutas Administrativas (`/birthday/api/admin/*`)**: Protegidas por autenticación "
+        "OIDC y autorización basada en grupos (`bdinvite_admins`)."
     ),
     openapi_tags=[
         {
@@ -45,7 +45,7 @@ app = FastAPI(
         },
         {
             "name": "Admin",
-            "description": "Gestión de asistentes, descarga CSV y edición de contenido protegida por Authelia.",
+            "description": "Gestión de asistentes, descarga CSV y edición de contenido protegida por autorización administrativa.",
         },
     ],
     lifespan=lifespan,

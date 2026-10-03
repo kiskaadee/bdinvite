@@ -10,8 +10,6 @@ from app.services.map_preview import (
     validate_google_maps_url_format,
 )
 
-ADMIN_HEADERS = {"Remote-User": "kiskaadee"}
-
 
 def test_is_google_maps_host():
     assert is_google_maps_host("maps.app.goo.gl")
@@ -72,7 +70,7 @@ def test_deg2num():
 
 @patch("app.routes.admin.resolve_google_maps_coordinates")
 @patch("app.routes.admin.generate_map_preview_image")
-def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client, tmp_path):
+def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client, admin_client, tmp_path):
     mock_resolve.return_value = (34.1432, -118.2551, "https://resolved.url")
     mock_generate.return_value = tmp_path / "map_preview.png"
 
@@ -81,9 +79,8 @@ def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client
     assert resp.status_code == 401
 
     # Test with auth -> 200
-    resp = client.post(
+    resp = admin_client.post(
         "/birthday/api/admin/map-preview/generate",
-        headers=ADMIN_HEADERS,
         json={"map_url": "https://maps.google.com/?q=34.1,-118.2"},
     )
     assert resp.status_code == 200
@@ -97,19 +94,19 @@ def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client
 
 @patch("app.routes.admin.resolve_google_maps_coordinates")
 @patch("app.routes.admin.generate_map_preview_image")
-def test_config_update_triggers_generator_only_when_map_url_changes(mock_generate, mock_resolve, client, tmp_path):
+def test_config_update_triggers_generator_only_when_map_url_changes(mock_generate, mock_resolve, admin_client, tmp_path):
     mock_resolve.return_value = (34.1432, -118.2551, "https://resolved.url")
     mock_generate.return_value = tmp_path / "map_preview.png"
 
     # Get current config
-    current = client.get("/birthday/api/admin/config", headers=ADMIN_HEADERS).json()
+    current = admin_client.get("/birthday/api/admin/config").json()
     orig_map_url = current["map_url"]
     assert orig_map_url == "https://maps.google.com/?q=Fresco+Ristorante+Glendale+CA"
 
     # 1. Update config WITHOUT changing map_url -> generator NOT called
     update_payload = {**current}
     update_payload["honoree_name"] = "Updated Honoree"
-    resp = client.put("/birthday/api/admin/config", headers=ADMIN_HEADERS, json=update_payload)
+    resp = admin_client.put("/birthday/api/admin/config", json=update_payload)
     assert resp.status_code == 200
     assert resp.json()["honoree_name"] == "Updated Honoree"
     mock_resolve.assert_not_called()
@@ -117,7 +114,7 @@ def test_config_update_triggers_generator_only_when_map_url_changes(mock_generat
 
     # 2. Update config WITH new map_url -> generator CALLED
     update_payload["map_url"] = "https://maps.google.com/?q=34.1432,-118.2551"
-    resp = client.put("/birthday/api/admin/config", headers=ADMIN_HEADERS, json=update_payload)
+    resp = admin_client.put("/birthday/api/admin/config", json=update_payload)
     assert resp.status_code == 200
     assert resp.json()["map_url"] == "https://maps.google.com/?q=34.1432,-118.2551"
     assert resp.json()["map_preview_url"] == "/birthday/api/map-preview.png"
@@ -125,11 +122,11 @@ def test_config_update_triggers_generator_only_when_map_url_changes(mock_generat
     mock_generate.assert_called_once_with(34.1432, -118.2551)
 
 
-def test_config_update_rejects_invalid_map_url(client):
-    current = client.get("/birthday/api/admin/config", headers=ADMIN_HEADERS).json()
+def test_config_update_rejects_invalid_map_url(admin_client):
+    current = admin_client.get("/birthday/api/admin/config").json()
     bad_payload = {**current, "map_url": "https://invalid-non-google-url.com/something"}
 
-    resp = client.put("/birthday/api/admin/config", headers=ADMIN_HEADERS, json=bad_payload)
+    resp = admin_client.put("/birthday/api/admin/config", json=bad_payload)
     assert resp.status_code == 422
 
 

@@ -3,9 +3,10 @@ import io
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from ..auth import AdminUserDep, Identity, require_admin
 from ..config import settings
 from ..database import get_db
 from ..schemas import (
@@ -21,45 +22,20 @@ from ..services.config import get_config, seed_default_config, update_config
 from ..services.map_preview import generate_map_preview_image, resolve_google_maps_coordinates
 from ..services.rsvp import delete_rsvp, get_rsvps, update_rsvp
 
-router = APIRouter(tags=["Admin"])
+router = APIRouter(tags=["Admin"], dependencies=[Depends(require_admin)])
 
-
-def require_admin(
-    request: Request,
-    remote_user: Annotated[
-        str | None,
-        Header(
-            alias="Remote-User",
-            description="Identidad de usuario autenticada e inyectada por Authelia ForwardAuth en el proxy Traefik",
-            examples=["kiskaadee"],
-        ),
-    ] = None,
-) -> str:
-    """Security invariant: require verified Remote-User header from Authelia or authenticated admin session."""
-    if remote_user:
-        return remote_user
-
-    from .auth import get_auth_adapter
-
-    adapter = get_auth_adapter()
-    identity = adapter.current_identity(request)
-    if identity and "bdinvite_admins" in identity.groups:
-        return identity.subject
-
-    raise HTTPException(
-        status_code=401,
-        detail="Not authenticated",
-    )
-
-
-AdminDep = Annotated[str, Depends(require_admin)]
+AdminDep = AdminUserDep
 DbDep = Annotated[Session, Depends(get_db)]
 
-ADMIN_401 = {
+ADMIN_RESPONSES = {
     401: {
-        "description": "No autenticado. Se requiere la cabecera `Remote-User` provista por Authelia ForwardAuth."
-    }
+        "description": "No autenticado. Se requiere una sesión válida o token de autorización.",
+    },
+    403: {
+        "description": "Acceso prohibido. El usuario autenticado no pertenece al grupo administrativo.",
+    },
 }
+
 
 
 @router.get(
@@ -72,7 +48,7 @@ ADMIN_401 = {
     ),
     responses={
         200: {"model": RSVPListResponse, "description": "Lista de confirmaciones obtenida."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 def list_rsvps(
@@ -101,7 +77,7 @@ def list_rsvps(
     responses={
         204: {"description": "Registro eliminado con éxito."},
         404: {"description": "Registro no encontrado."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 def delete_rsvp_endpoint(
@@ -128,7 +104,7 @@ def delete_rsvp_endpoint(
         400: {"description": "Error de validación en los campos proporcionados."},
         404: {"description": "Registro no encontrado."},
         409: {"description": "El número de teléfono ya está registrado por otro asistente."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 def update_rsvp_endpoint(
@@ -166,7 +142,7 @@ def update_rsvp_endpoint(
             "content": {"text/csv": {}},
             "description": "Descarga del archivo CSV `rsvps.csv`.",
         },
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 def export_rsvps_csv(
@@ -201,7 +177,7 @@ def export_rsvps_csv(
     description="Retorna el objeto completo de configuración para poblar el formulario de administración.",
     responses={
         200: {"model": InvitationConfigResponse, "description": "Configuración obtenida correctamente."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 def get_admin_config(
@@ -226,7 +202,22 @@ def get_admin_config(
     ),
     responses={
         200: {"model": InvitationConfigResponse, "description": "Configuración actualizada con éxito."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
+    },
+)
+@router.patch(
+    "/config",
+    response_model=InvitationConfigResponse,
+    summary="Actualizar configuración de la invitación",
+    description=(
+        "Actualiza los valores de la configuración singleton del evento. "
+        "Si la URL de Google Maps cambió, valida y regenera automáticamente la vista previa del mapa. "
+        "Aplica validación de fecha ISO, hora en formato militar 24h y zona horaria válida IANA. "
+        "Los cambios toman efecto de inmediato sin requerir recarga del contenedor."
+    ),
+    responses={
+        200: {"model": InvitationConfigResponse, "description": "Configuración actualizada con éxito."},
+        **ADMIN_RESPONSES,
     },
 )
 async def update_admin_config(
@@ -272,7 +263,7 @@ async def update_admin_config(
     ),
     responses={
         200: {"model": GenerateMapPreviewResponse, "description": "Vista previa generada exitosamente."},
-        **ADMIN_401,
+        **ADMIN_RESPONSES,
     },
 )
 async def regenerate_map_preview_endpoint(

@@ -10,19 +10,16 @@ def test_get_config_public(client):
     assert data["countdown_label"] == "NOS VEMOS EN"
 
 
-def test_get_config_admin(client):
+def test_get_config_admin(client, admin_client):
     res_unauth = client.get("/birthday/api/admin/config")
     assert res_unauth.status_code == 401
 
-    res_auth = client.get(
-        "/birthday/api/admin/config",
-        headers={"Remote-User": "admin_user"},
-    )
+    res_auth = admin_client.get("/birthday/api/admin/config")
     assert res_auth.status_code == 200
     assert res_auth.json()["honoree_name"] == "Isabelle Snow"
 
 
-def test_update_config_requires_admin(client):
+def test_update_config_requires_admin(client, admin_client):
     update_payload = {
         "title": "Fiesta de Cumpleaños",
         "invitation_text": "Estás invitado a la fiesta de",
@@ -46,15 +43,14 @@ def test_update_config_requires_admin(client):
         "countdown_in_progress": "EN VIVO",
         "countdown_finished": "TERMINADO",
     }
-    # Without Remote-User header -> 401
+    # Without session -> 401
     res = client.put("/birthday/api/admin/config", json=update_payload)
     assert res.status_code == 401
 
-    # With Remote-User header -> 200
-    res_auth = client.put(
+    # With admin session -> 200
+    res_auth = admin_client.put(
         "/birthday/api/admin/config",
         json=update_payload,
-        headers={"Remote-User": "admin_user"},
     )
     assert res_auth.status_code == 200
     data = res_auth.json()
@@ -68,7 +64,7 @@ def test_update_config_requires_admin(client):
     assert res_pub.json()["title"] == "Fiesta de Cumpleaños"
 
 
-def test_update_config_invalid_timezone(client):
+def test_update_config_invalid_timezone(admin_client):
     invalid_payload = {
         "title": "Party",
         "invitation_text": "Invited",
@@ -92,10 +88,9 @@ def test_update_config_invalid_timezone(client):
         "countdown_in_progress": "CURSO",
         "countdown_finished": "FIN",
     }
-    res = client.put(
+    res = admin_client.put(
         "/birthday/api/admin/config",
         json=invalid_payload,
-        headers={"Remote-User": "admin_user"},
     )
     assert res.status_code == 422
 
