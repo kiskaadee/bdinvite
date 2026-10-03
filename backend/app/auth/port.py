@@ -25,6 +25,8 @@ class Identity:
     def __post_init__(self) -> None:
         if self.groups is None:  # type: ignore[reportUnnecessaryComparison]
             object.__setattr__(self, "groups", [])
+        elif not isinstance(self.groups, list):
+            object.__setattr__(self, "groups", list(self.groups))
 
 
 @runtime_checkable

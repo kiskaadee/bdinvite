@@ -10,10 +10,13 @@ from .oidc import (
     OIDCError,
     OIDCTransaction,
     TokenValidationError,
+    claims_to_identity,
+    extract_identity_from_claims,
     generate_code_challenge,
     generate_code_verifier,
     generate_nonce,
     generate_state,
+    resolve_claim_path,
 )
 from .port import AuthPort, Identity
 
@@ -29,8 +32,11 @@ __all__ = [
     "OIDCError",
     "OIDCTransaction",
     "TokenValidationError",
+    "claims_to_identity",
+    "extract_identity_from_claims",
     "generate_code_challenge",
     "generate_code_verifier",
     "generate_nonce",
     "generate_state",
+    "resolve_claim_path",
 ]

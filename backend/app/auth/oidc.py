@@ -111,6 +111,15 @@ class OIDCConfig:
     scope: str = "openid profile email"
     discovery_url: Optional[str] = None
     request_timeout: float = 10.0
+    groups_claim: str = "groups"
+    group_claim_path: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.group_claim_path and self.groups_claim == "groups":
+            object.__setattr__(self, "groups_claim", self.group_claim_path)
+        elif self.group_claim_path is None:
+            object.__setattr__(self, "group_claim_path", self.groups_claim)
+
 
 
 class OIDCClient:
@@ -302,6 +311,7 @@ class OIDCClient:
         code: str,
         transaction_or_verifier: Union[OIDCTransaction, str],
         redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Exchange authorization code for tokens using PKCE code_verifier."""
         if isinstance(transaction_or_verifier, OIDCTransaction):
@@ -315,6 +325,8 @@ class OIDCClient:
             "redirect_uri": redirect_uri or self.config.redirect_uri,
             "code_verifier": code_verifier,
         }
+        if extra_params:
+            data.update(extra_params)
 
         with httpx.Client(timeout=self.config.request_timeout) as client:
             if self.config.client_secret:
@@ -338,6 +350,7 @@ class OIDCClient:
         code: str,
         transaction_or_verifier: Union[OIDCTransaction, str],
         redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Asynchronously exchange authorization code for tokens using PKCE code_verifier."""
         if isinstance(transaction_or_verifier, OIDCTransaction):
@@ -351,6 +364,8 @@ class OIDCClient:
             "redirect_uri": redirect_uri or self.config.redirect_uri,
             "code_verifier": code_verifier,
         }
+        if extra_params:
+            data.update(extra_params)
 
         async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
             if self.config.client_secret:
@@ -456,29 +471,15 @@ class OIDCClient:
         return self.validate_id_token(id_token=id_token, nonce=nonce, jwk_set=jwk_set)
 
     def claims_to_identity(self, claims: dict[str, Any]) -> Identity:
-        """Convert validated ID token claims into domain Identity model."""
-        subject = str(claims.get("sub", ""))
-        if not subject:
-            raise TokenValidationError("ID token claims missing 'sub'")
-
-        email = str(claims.get("email") or claims.get("preferred_username") or f"{subject}@local")
-        name = claims.get("name")
-        raw_groups = claims.get("groups") or claims.get("roles") or []
-
-        if isinstance(raw_groups, list):
-            groups = [str(g) for g in raw_groups]
-        elif isinstance(raw_groups, str):
-            groups = [raw_groups]
-        else:
-            groups = []
-
-        return Identity(subject=subject, email=email, name=name, groups=groups)
+        """Convert validated ID token claims into domain Identity model using configured groups_claim."""
+        return extract_identity_from_claims(claims, groups_claim=self.config.groups_claim)
 
     def process_callback(
         self,
         code: str,
         state: str,
         redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
     ) -> tuple[Identity, dict[str, Any]]:
         """Complete callback processing: state validation, code exchange, ID token validation."""
         transaction = self.validate_state(state)
@@ -486,6 +487,7 @@ class OIDCClient:
             code=code,
             transaction_or_verifier=transaction,
             redirect_uri=redirect_uri,
+            extra_params=extra_params,
         )
         id_token = tokens.get("id_token")
         if not id_token or not isinstance(id_token, str):
@@ -500,6 +502,7 @@ class OIDCClient:
         code: str,
         state: str,
         redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
     ) -> tuple[Identity, dict[str, Any]]:
         """Asynchronously complete callback processing."""
         transaction = self.validate_state(state)
@@ -507,6 +510,7 @@ class OIDCClient:
             code=code,
             transaction_or_verifier=transaction,
             redirect_uri=redirect_uri,
+            extra_params=extra_params,
         )
         id_token = tokens.get("id_token")
         if not id_token or not isinstance(id_token, str):
@@ -515,6 +519,162 @@ class OIDCClient:
         claims = await self.avalidate_id_token(id_token=id_token, nonce=transaction.nonce)
         identity = self.claims_to_identity(claims)
         return identity, tokens
+
+    def authenticate_user(
+        self,
+        username: str,
+        password: Optional[str] = None,
+        scope: Optional[str] = None,
+    ) -> tuple[Identity, dict[str, Any]]:
+        """Authenticate user using Resource Owner Password Credentials grant.
+
+        Fetches tokens, cryptographically validates the ID token, and extracts the domain Identity.
+        """
+        data = {
+            "grant_type": "password",
+            "client_id": self.config.client_id,
+            "username": username,
+            "scope": scope or self.config.scope,
+        }
+        if password:
+            data["password"] = password
+
+        with httpx.Client(timeout=self.config.request_timeout) as client:
+            if self.config.client_secret:
+                resp = client.post(
+                    self.token_endpoint,
+                    data=data,
+                    auth=(self.config.client_id, self.config.client_secret),
+                )
+            else:
+                resp = client.post(self.token_endpoint, data=data)
+            if resp.status_code != 200:
+                raise OIDCError(
+                    status_code=resp.status_code,
+                    detail=f"User authentication failed with HTTP {resp.status_code}: {resp.text}",
+                )
+            tokens = resp.json()
+
+        id_token = tokens.get("id_token")
+        if not id_token or not isinstance(id_token, str):
+            raise TokenValidationError("Token response missing 'id_token'")
+
+        claims = self.validate_id_token(id_token=id_token)
+        identity = self.claims_to_identity(claims)
+        return identity, tokens
+
+    async def aauthenticate_user(
+        self,
+        username: str,
+        password: Optional[str] = None,
+        scope: Optional[str] = None,
+    ) -> tuple[Identity, dict[str, Any]]:
+        """Asynchronously authenticate user using Resource Owner Password Credentials grant."""
+        data = {
+            "grant_type": "password",
+            "client_id": self.config.client_id,
+            "username": username,
+            "scope": scope or self.config.scope,
+        }
+        if password:
+            data["password"] = password
+
+        async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
+            if self.config.client_secret:
+                resp = await client.post(
+                    self.token_endpoint,
+                    data=data,
+                    auth=(self.config.client_id, self.config.client_secret),
+                )
+            else:
+                resp = await client.post(self.token_endpoint, data=data)
+            if resp.status_code != 200:
+                raise OIDCError(
+                    status_code=resp.status_code,
+                    detail=f"User authentication failed with HTTP {resp.status_code}: {resp.text}",
+                )
+            tokens = resp.json()
+
+        id_token = tokens.get("id_token")
+        if not id_token or not isinstance(id_token, str):
+            raise TokenValidationError("Token response missing 'id_token'")
+
+        claims = await self.avalidate_id_token(id_token=id_token)
+        identity = self.claims_to_identity(claims)
+        return identity, tokens
+
+
+def resolve_claim_path(claims: dict[str, Any], path: str) -> Any:
+    """Extract a claim value from a nested or flat claim path.
+
+    Supports flat keys (e.g. 'groups') and dotted paths (e.g. 'realm_access.roles').
+    """
+    if path in claims:
+        return claims[path]
+    parts = path.split(".")
+    curr: Any = claims
+    for part in parts:
+        if isinstance(curr, dict) and part in curr:
+            curr = curr[part]
+        else:
+            return None
+    return curr
+
+
+def extract_identity_from_claims(
+    claims: dict[str, Any],
+    groups_claim: str = "groups",
+) -> Identity:
+    """Convert validated ID token claims into typed domain Identity model.
+
+    Identity Origin Integrity Invariant:
+    This function expects cryptographically verified token claims or authenticated IdP payloads.
+    It extracts standard identity claims (sub, email, name) and resolves group memberships
+    from the configured group claim path (defaulting cleanly to an empty list when absent).
+    """
+    subject = claims.get("sub")
+    if not subject or not str(subject).strip():
+        raise TokenValidationError("ID token claims missing required 'sub' claim")
+    subject = str(subject)
+
+    email = claims.get("email")
+    if not email or not str(email).strip():
+        email = claims.get("preferred_username") or f"{subject}@local"
+    email = str(email)
+
+    name = claims.get("name")
+    if name is not None:
+        name = str(name)
+
+    raw_groups = resolve_claim_path(claims, groups_claim)
+    if raw_groups is None and groups_claim == "groups":
+        raw_groups = claims.get("roles")
+
+    if raw_groups is None:
+        groups: list[str] = []
+    elif isinstance(raw_groups, list):
+        groups = [str(g) for g in raw_groups if g is not None]
+    elif isinstance(raw_groups, (tuple, set)):
+        groups = [str(g) for g in raw_groups if g is not None]
+    elif isinstance(raw_groups, str):
+        if not raw_groups.strip():
+            groups = []
+        elif "," in raw_groups:
+            groups = [g.strip() for g in raw_groups.split(",") if g.strip()]
+        else:
+            groups = [raw_groups.strip()]
+    else:
+        groups = []
+
+    return Identity(subject=subject, email=email, name=name, groups=groups)
+
+
+def claims_to_identity(
+    claims: dict[str, Any],
+    groups_claim: str = "groups",
+) -> Identity:
+    """Convenience alias for extract_identity_from_claims."""
+    return extract_identity_from_claims(claims, groups_claim=groups_claim)
 
 
 class OIDCAuthAdapter:
@@ -530,9 +690,26 @@ class OIDCAuthAdapter:
         self.sessions: dict[str, Identity] = {}
 
     def current_identity(self, request: Request) -> Optional[Identity]:
+        """Extract and return verified Identity.
+
+        Identity Origin Integrity Invariant:
+        Identities are NEVER derived from unvalidated request-controlled headers
+        (such as X-User, X-Email, etc.). Identities are ONLY returned from
+        cryptographically validated sessions or verified Bearer ID tokens.
+        """
         session_id = request.headers.get("X-Session-ID") or request.cookies.get(self.session_cookie_name)
         if session_id and session_id in self.sessions:
             return self.sessions[session_id]
+
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            try:
+                claims = self.client.validate_id_token(token)
+                return self.client.claims_to_identity(claims)
+            except Exception:
+                return None
+
         return None
 
     def login(self, request: Request) -> Response:
@@ -548,3 +725,49 @@ class OIDCAuthAdapter:
         resp = RedirectResponse(url=redirect_target, status_code=302)
         resp.delete_cookie(self.session_cookie_name)
         return resp
+
+    def establish_session(self, identity: Identity) -> str:
+        """Register a verified Identity and return a new session ID."""
+        session_id = secrets.token_urlsafe(32)
+        self.sessions[session_id] = identity
+        return session_id
+
+    def handle_callback(
+        self,
+        code: str,
+        state: str,
+        response: Optional[Response] = None,
+        redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
+    ) -> tuple[Identity, str]:
+        """Authenticate user from callback, establish session, and return Identity and session_id."""
+        identity, _ = self.client.process_callback(
+            code=code,
+            state=state,
+            redirect_uri=redirect_uri,
+            extra_params=extra_params,
+        )
+        session_id = self.establish_session(identity)
+        if response is not None:
+            response.set_cookie(self.session_cookie_name, session_id, httponly=True, samesite="lax")
+        return identity, session_id
+
+    async def ahandle_callback(
+        self,
+        code: str,
+        state: str,
+        response: Optional[Response] = None,
+        redirect_uri: Optional[str] = None,
+        extra_params: Optional[dict[str, Any]] = None,
+    ) -> tuple[Identity, str]:
+        """Asynchronously authenticate user from callback, establish session, and return Identity and session_id."""
+        identity, _ = await self.client.aprocess_callback(
+            code=code,
+            state=state,
+            redirect_uri=redirect_uri,
+            extra_params=extra_params,
+        )
+        session_id = self.establish_session(identity)
+        if response is not None:
+            response.set_cookie(self.session_cookie_name, session_id, httponly=True, samesite="lax")
+        return identity, session_id
