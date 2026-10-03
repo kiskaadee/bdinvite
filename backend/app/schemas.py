@@ -404,3 +404,16 @@ class GenerateMapPreviewResponse(BaseModel):
     lat: float = Field(description="Latitud resuelta")
     lng: float = Field(description="Longitud resuelta")
     message: str = Field(default="Vista previa generada con éxito")
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., description="Nombre de usuario o correo para autenticación OIDC")
+    password: str = Field(..., description="Contraseña de usuario")
+
+
+class UserResponse(BaseModel):
+    subject: str = Field(..., description="Identificador único del usuario (sub)")
+    email: str = Field(..., description="Correo electrónico del usuario")
+    name: str | None = Field(default=None, description="Nombre visible del usuario")
+    groups: list[str] = Field(default_factory=list, description="Grupos o roles asignados al usuario")
+

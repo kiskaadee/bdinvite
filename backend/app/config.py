@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +16,12 @@ class Settings(BaseSettings):
     OIDC_CLIENT_SECRET: str = "bdinvite-secret"
     OIDC_REDIRECT_URI: str = "http://localhost:8000/birthday/api/auth/callback"
     OIDC_GROUPS_CLAIM: str = "groups"
+    SESSION_COOKIE_NAME: str = "bdinvite_session"
+    SESSION_COOKIE_SECURE: bool = False
+    SESSION_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    SESSION_COOKIE_HTTPONLY: bool = True
+    SESSION_MAX_AGE_SECONDS: int = 86400
+    SESSION_SECRET_KEY: str = "bdinvite-session-secret-key-change-in-prod"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
