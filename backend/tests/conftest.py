@@ -41,3 +41,53 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+def create_test_session(
+    subject: str = "admin-001",
+    email: str = "admin@example.com",
+    groups: list[str] | None = None,
+) -> tuple[str, str]:
+    """Helper to create a valid signed session cookie for testing."""
+    from app.auth import Identity, get_auth_adapter, sign_session_cookie
+
+    if groups is None:
+        groups = ["bdinvite_admins"]
+    adapter = get_auth_adapter()
+    identity = Identity(
+        subject=subject,
+        email=email,
+        groups=groups,
+    )
+    session = adapter.session_store.create_session(identity=identity)
+    signed_cookie = sign_session_cookie(session.session_id, adapter.secret_key)
+    return adapter.session_cookie_name, signed_cookie
+
+
+def login_client(
+    client: TestClient,
+    subject: str = "admin-001",
+    email: str = "admin@example.com",
+    groups: list[str] | None = None,
+) -> TestClient:
+    """Sets a valid session cookie on client for an identity with the given groups."""
+    cookie_name, cookie_value = create_test_session(
+        subject=subject,
+        email=email,
+        groups=groups,
+    )
+    client.cookies.set(cookie_name, cookie_value)
+    return client
+
+
+@pytest.fixture(scope="function")
+def admin_client(client: TestClient) -> TestClient:
+    login_client(client, groups=["bdinvite_admins"])
+    return client
+
+
+@pytest.fixture(scope="function")
+def guest_client(client: TestClient) -> TestClient:
+    login_client(client, subject="guest-001", email="guest@example.com", groups=["guests"])
+    return client
+
