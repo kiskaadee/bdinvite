@@ -529,6 +529,8 @@ class OIDCClient:
         email_val = claims.get("email")
         if email_val and isinstance(email_val, str) and email_val.strip():
             email = email_val.strip()
+        elif "@" in subject:
+            email = subject
         else:
             email = f"{subject}@{self.config.client_id}.local"
 

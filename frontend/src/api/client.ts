@@ -158,3 +158,27 @@ export async function updateAdminRsvp(
   return res.json();
 }
 
+export interface CurrentUser {
+  subject: string;
+  email: string;
+  name: string | null;
+  groups: string[];
+}
+
+export async function fetchCurrentUser(): Promise<CurrentUser> {
+  const res = await fetch(`${BASE_API}/auth/me`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(`Unauthenticated: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function logoutUser(): Promise<void> {
+  await fetch(`${BASE_API}/auth/logout`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+}
+

@@ -77,7 +77,7 @@ class OIDCAuthAdapter(AuthPort):
         Identity Origin Integrity:
         Resolves identity strictly from verified server-side sessions or cryptographically
         verified tokens (Authorization Bearer header). Request-controlled headers (e.g.
-        Remote-User, X-User) are strictly ignored to prevent identity spoofing.
+        legacy proxy headers (e.g. forwarded user headers, X-User) are strictly ignored to prevent identity spoofing.
         """
         # 1. Authorization: Bearer <token>
         auth_header = request.headers.get("Authorization")
