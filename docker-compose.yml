@@ -7,26 +7,28 @@ services:
       - ./data:/app/data
     environment:
       - BASE_PATH=/birthday
+      - SERVICE_DOMAIN=${SERVICE_DOMAIN:-demos.roadtotech.me}
+      - OIDC_ISSUER=${OIDC_ISSUER:-https://auth.roadtotech.me}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-bdinvite-client}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-https://demos.roadtotech.me/birthday/api/auth/callback}
+      - OIDC_GROUPS_CLAIM=${OIDC_GROUPS_CLAIM:-groups}
+      - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME:-bdinvite_session}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
+      - SESSION_COOKIE_SAMESITE=${SESSION_COOKIE_SAMESITE:-lax}
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY}
     networks:
       - proxy-net
     labels:
       - "diun.enable=false"
       - "traefik.enable=true"
 
-      # Public router (invitation + public API)
-      - "traefik.http.routers.bdinvite-public.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday`)"
-      - "traefik.http.routers.bdinvite-public.entrypoints=websecure"
-      - "traefik.http.routers.bdinvite-public.tls=true"
-      - "traefik.http.routers.bdinvite-public.priority=10"
-      - "traefik.http.routers.bdinvite-public.service=bdinvite-svc"
-
-      # Admin router (Authelia-protected)
-      - "traefik.http.routers.bdinvite-admin.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && (PathPrefix(`/birthday/admin`) || PathPrefix(`/birthday/api/admin`))"
-      - "traefik.http.routers.bdinvite-admin.entrypoints=websecure"
-      - "traefik.http.routers.bdinvite-admin.tls=true"
-      - "traefik.http.routers.bdinvite-admin.priority=20"
-      - "traefik.http.routers.bdinvite-admin.middlewares=authelia-auth@docker"
-      - "traefik.http.routers.bdinvite-admin.service=bdinvite-svc"
+      # Workload router (invitation, admin, and APIs)
+      - "traefik.http.routers.bdinvite.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday`)"
+      - "traefik.http.routers.bdinvite.entrypoints=websecure"
+      - "traefik.http.routers.bdinvite.tls=true"
+      - "traefik.http.routers.bdinvite.priority=10"
+      - "traefik.http.routers.bdinvite.service=bdinvite-svc"
 
       # HTTP to HTTPS redirect
       - "traefik.http.routers.bdinvite-red.rule=Host(`${SERVICE_DOMAIN:-demos.roadtotech.me}`) && PathPrefix(`/birthday`)"

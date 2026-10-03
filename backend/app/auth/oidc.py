@@ -70,6 +70,13 @@ class TokenExchangeError(OIDCError):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
+class InvalidPKCEError(OIDCError):
+    """Raised when the PKCE code_verifier is missing, invalid, or fails verification."""
+
+    def __init__(self, detail: str = "Missing or invalid PKCE code_verifier") -> None:
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
 @dataclass
 class OIDCConfig:
     """Configuration for generic OIDC client."""
@@ -446,7 +453,16 @@ class OIDCClient:
                 elif not state.strip():
                     raise InvalidStateError("State parameter cannot be empty")
         elif resolved_verifier is None:
-            raise InvalidStateError("Either valid state or explicit code_verifier must be provided")
+            raise InvalidPKCEError("Missing PKCE code_verifier")
+
+        if resolved_verifier is None or not isinstance(resolved_verifier, str) or not resolved_verifier.strip():
+            raise InvalidPKCEError("Missing or invalid PKCE code_verifier")
+
+        # Validate code_verifier length and character set per RFC 7636
+        if not (43 <= len(resolved_verifier) <= 128) or not all(c in PKCE_CHARSET for c in resolved_verifier):
+            raise InvalidPKCEError(
+                "Invalid PKCE code_verifier: length must be between 43 and 128 unreserved characters"
+            )
 
         data: dict[str, str] = {
             "grant_type": "authorization_code",
@@ -484,6 +500,19 @@ class OIDCClient:
             raise TokenExchangeError(f"Failed to communicate with token endpoint: {e}") from e
 
         if response.status_code != 200:
+            error_data: dict[str, Any] = {}
+            try:
+                parsed = response.json()
+                if isinstance(parsed, dict):
+                    error_data = parsed
+            except Exception:
+                pass
+            err_desc = str(error_data.get("error_description", "")).lower()
+            err_code = str(error_data.get("error", "")).lower()
+            if "pkce" in err_desc or "code_verifier" in err_desc or "invalid_grant" in err_code:
+                raise InvalidPKCEError(
+                    f"PKCE verification failed: {error_data.get('error_description') or error_data.get('error') or response.text}"
+                )
             raise TokenExchangeError(
                 f"Token endpoint returned HTTP {response.status_code}: {response.text}"
             )
