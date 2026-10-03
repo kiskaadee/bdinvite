@@ -10,41 +10,11 @@ from ..config import settings
 
 router = APIRouter(tags=["Auth"])
 
-_auth_adapter: Optional[OIDCAuthAdapter] = None
-
-
-def get_auth_adapter() -> OIDCAuthAdapter:
-    """Provide singleton or cached OIDCAuthAdapter for dependency injection."""
-    global _auth_adapter
-    if _auth_adapter is None:
-        client_config = OIDCConfig(
-            issuer=settings.OIDC_ISSUER,
-            client_id=settings.OIDC_CLIENT_ID,
-            client_secret=settings.OIDC_CLIENT_SECRET,
-            redirect_uri=settings.OIDC_REDIRECT_URI,
-            groups_claim=settings.OIDC_GROUPS_CLAIM,
-            group_claim_path=settings.OIDC_GROUP_CLAIM_PATH,
-        )
-        client = OIDCClient(client_config)
-        _auth_adapter = OIDCAuthAdapter(
-            client=client,
-            session_cookie_name=settings.SESSION_COOKIE_NAME,
-            cookie_secure=settings.SESSION_COOKIE_SECURE,
-            cookie_samesite=settings.SESSION_COOKIE_SAMESITE,
-            cookie_path=settings.SESSION_COOKIE_PATH,
-            cookie_domain=settings.SESSION_COOKIE_DOMAIN,
-            session_lifetime=float(settings.SESSION_EXPIRE_SECONDS),
-        )
-    return _auth_adapter
-
-
-def set_auth_adapter(adapter: Optional[OIDCAuthAdapter]) -> None:
-    """Override the active auth adapter (for test isolation and fixture injection)."""
-    global _auth_adapter
-    _auth_adapter = adapter
-
-
-AuthAdapterDep = Annotated[OIDCAuthAdapter, Depends(get_auth_adapter)]
+from ..auth.dependencies import (
+    AuthAdapterDep,
+    get_auth_adapter,
+    set_auth_adapter,
+)
 
 
 @router.get(

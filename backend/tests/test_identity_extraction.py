@@ -348,7 +348,7 @@ def test_identity_origin_integrity_bearer_token_validation(oidc_client: OIDCClie
 
     # 2. Tampered token signature fails verification and yields None
     parts = valid_id_token.split(".")
-    tampered_sig = ("X" if parts[2][-1] != "X" else "Y") + parts[2][1:]
+    tampered_sig = ("X" if parts[2][0] != "X" else "Y") + parts[2][1:]
     tampered_token = f"{parts[0]}.{parts[1]}.{tampered_sig}"
 
     req_with_tampered_bearer = create_request(

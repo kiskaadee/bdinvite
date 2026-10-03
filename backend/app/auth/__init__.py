@@ -1,5 +1,17 @@
 """Authentication package providing domain models, hexagonal ports, and OIDC client."""
 
+from .dependencies import (
+    AdminUserDep,
+    AuthAdapterDep,
+    AuthenticatedUserDep,
+    CurrentIdentityDep,
+    get_auth_adapter,
+    get_current_identity,
+    require_admin,
+    require_authenticated,
+    require_group,
+    set_auth_adapter,
+)
 from .oidc import (
     InvalidNonceError,
     InvalidStateError,
@@ -22,7 +34,11 @@ from .oidc import (
 from .port import AuthPort, Identity
 
 __all__ = [
+    "AdminUserDep",
+    "AuthAdapterDep",
     "AuthPort",
+    "AuthenticatedUserDep",
+    "CurrentIdentityDep",
     "Identity",
     "InvalidNonceError",
     "InvalidStateError",
@@ -40,5 +56,11 @@ __all__ = [
     "generate_code_verifier",
     "generate_nonce",
     "generate_state",
+    "get_auth_adapter",
+    "get_current_identity",
+    "require_admin",
+    "require_authenticated",
+    "require_group",
     "resolve_claim_path",
+    "set_auth_adapter",
 ]
