@@ -5,7 +5,7 @@ import hashlib
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 from urllib.parse import urlencode
 
 import httpx
@@ -677,17 +677,198 @@ def claims_to_identity(
     return extract_identity_from_claims(claims, groups_claim=groups_claim)
 
 
+@dataclass
+class SessionRecord:
+    """Server-side session record holding authenticated identity and lifetime metadata."""
+
+    session_id: str
+    identity: Identity
+    created_at: float = field(default_factory=time.time)
+    expires_at: float = 0.0
+    last_accessed: float = field(default_factory=time.time)
+    data: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if the session has expired past its TTL."""
+        if self.expires_at <= 0:
+            return False
+        return time.time() > self.expires_at
+
+
 class OIDCAuthAdapter:
-    """Hexagonal AuthPort adapter using OIDCClient."""
+    """Hexagonal AuthPort adapter using OIDCClient with robust browser session management."""
+
+    client: OIDCClient
+    session_cookie_name: str
+    cookie_secure: bool
+    cookie_samesite: Literal["lax", "strict", "none"]
+    cookie_path: str
+    cookie_domain: Optional[str]
+    session_lifetime: float
+    sessions: dict[str, Any]
 
     def __init__(
         self,
         client: OIDCClient,
-        session_cookie_name: str = "session_id",
+        session_cookie_name: str = "bdinvite_session",
+        cookie_secure: bool = False,
+        cookie_samesite: Literal["lax", "strict", "none"] = "lax",
+        cookie_path: str = "/",
+        cookie_domain: Optional[str] = None,
+        session_lifetime: float = 86400.0,
+        sessions: Optional[dict[str, Any]] = None,
     ) -> None:
         self.client = client
         self.session_cookie_name = session_cookie_name
-        self.sessions: dict[str, Identity] = {}
+        self.cookie_secure = cookie_secure
+        self.cookie_samesite = cookie_samesite
+        self.cookie_path = cookie_path
+        self.cookie_domain = cookie_domain
+        self.session_lifetime = session_lifetime
+        self.sessions: dict[str, Any] = sessions if sessions is not None else {}
+
+    def extract_session_id(self, request: Request) -> Optional[str]:
+        """Safely extract and sanitize session identifier from cookies or headers.
+
+        Rejects malformed, tampered, or overly long inputs without throwing exceptions.
+        """
+        raw_id = (
+            request.cookies.get(self.session_cookie_name)
+            or request.cookies.get("session_id")
+            or request.headers.get("X-Session-ID")
+        )
+        if not raw_id or not isinstance(raw_id, str):
+            return None
+        raw_id = raw_id.strip()
+        if not raw_id or len(raw_id) > 256:
+            return None
+
+        # Disallow control characters, newlines, null bytes, quotes, semicolons
+        import string
+
+        allowed = set(string.ascii_letters + string.digits + "-_.~+")
+        if not set(raw_id).issubset(allowed):
+            return None
+
+        return raw_id
+
+    def get_session(self, session_id: str) -> Optional[SessionRecord]:
+        """Retrieve and validate session from storage. Returns None if absent or expired."""
+        if not session_id or session_id not in self.sessions:
+            return None
+
+        entry = self.sessions[session_id]
+        if isinstance(entry, Identity):
+            # Compatibility with direct Identity assignments
+            now = time.time()
+            return SessionRecord(
+                session_id=session_id,
+                identity=entry,
+                created_at=now,
+                expires_at=now + self.session_lifetime,
+                last_accessed=now,
+            )
+
+        if isinstance(entry, SessionRecord):
+            if entry.is_expired:
+                self.revoke_session(session_id)
+                return None
+            return entry
+
+        return None
+
+    def revoke_session(self, session_id: str) -> bool:
+        """Revoke a session from storage."""
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+            return True
+        return False
+
+    def create_anonymous_session(self) -> str:
+        """Create a pre-authentication session identifier (for tracking or CSRF)."""
+        return secrets.token_urlsafe(32)
+
+    def establish_session(
+        self,
+        identity: Identity,
+        pre_auth_session_id: Optional[str] = None,
+        ttl: Optional[float] = None,
+    ) -> str:
+        """Register a verified Identity and return a fresh new session ID.
+
+        Session Fixation Barrier:
+        Always generates a fresh, cryptographically secure session identifier.
+        If a pre-authentication session identifier is provided or existed, it is
+        explicitly invalidated and NEVER reused or promoted into an authenticated session.
+        """
+        if pre_auth_session_id:
+            self.revoke_session(pre_auth_session_id)
+
+        new_session_id = secrets.token_urlsafe(32)
+        while new_session_id == pre_auth_session_id or new_session_id in self.sessions:
+            new_session_id = secrets.token_urlsafe(32)
+
+        lifetime = ttl if ttl is not None else self.session_lifetime
+        now = time.time()
+        record = SessionRecord(
+            session_id=new_session_id,
+            identity=identity,
+            created_at=now,
+            expires_at=now + lifetime if lifetime > 0 else 0.0,
+            last_accessed=now,
+        )
+        self.sessions[new_session_id] = record
+        return new_session_id
+
+    def set_session_cookie(
+        self,
+        response: Response,
+        session_id: str,
+        max_age: Optional[int] = None,
+    ) -> None:
+        """Set session cookie with HttpOnly=True and configured security attributes."""
+        lifetime = max_age if max_age is not None else int(self.session_lifetime)
+        response.set_cookie(
+            key=self.session_cookie_name,
+            value=session_id,
+            max_age=lifetime,
+            expires=lifetime,
+            path=self.cookie_path,
+            domain=self.cookie_domain,
+            secure=self.cookie_secure,
+            httponly=True,  # Mandatory Security Invariant: JS cannot access session identifier
+            samesite=self.cookie_samesite,
+        )
+        if self.session_cookie_name != "session_id":
+            response.delete_cookie(
+                key="session_id",
+                path=self.cookie_path,
+                domain=self.cookie_domain,
+                secure=self.cookie_secure,
+                httponly=True,
+                samesite=self.cookie_samesite,
+            )
+
+    def clear_session_cookie(self, response: Response) -> None:
+        """Clear browser session cookies by setting Max-Age=0."""
+        response.delete_cookie(
+            key=self.session_cookie_name,
+            path=self.cookie_path,
+            domain=self.cookie_domain,
+            secure=self.cookie_secure,
+            httponly=True,
+            samesite=self.cookie_samesite,
+        )
+        if self.session_cookie_name != "session_id":
+            response.delete_cookie(
+                key="session_id",
+                path=self.cookie_path,
+                domain=self.cookie_domain,
+                secure=self.cookie_secure,
+                httponly=True,
+                samesite=self.cookie_samesite,
+            )
 
     def current_identity(self, request: Request) -> Optional[Identity]:
         """Extract and return verified Identity.
@@ -697,9 +878,12 @@ class OIDCAuthAdapter:
         (such as X-User, X-Email, etc.). Identities are ONLY returned from
         cryptographically validated sessions or verified Bearer ID tokens.
         """
-        session_id = request.headers.get("X-Session-ID") or request.cookies.get(self.session_cookie_name)
-        if session_id and session_id in self.sessions:
-            return self.sessions[session_id]
+        session_id = self.extract_session_id(request)
+        if session_id:
+            record = self.get_session(session_id)
+            if record is not None:
+                record.last_accessed = time.time()
+                return record.identity
 
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -713,24 +897,25 @@ class OIDCAuthAdapter:
         return None
 
     def login(self, request: Request) -> Response:
+        """Handle or initiate the authentication flow (redirecting to IdP)."""
         auth_url, _ = self.client.create_authorization_url()
         return RedirectResponse(url=auth_url, status_code=302)
 
-    def logout(self, request: Request) -> Response:
-        session_id = request.cookies.get(self.session_cookie_name)
-        if session_id and session_id in self.sessions:
-            del self.sessions[session_id]
+    def logout(
+        self,
+        request: Request,
+        response: Optional[Response] = None,
+        redirect_target: Optional[str] = None,
+    ) -> Response:
+        """Terminate the active session and clear client cookies."""
+        session_id = self.extract_session_id(request)
+        if session_id:
+            self.revoke_session(session_id)
 
-        redirect_target = self.client.end_session_endpoint or "/"
-        resp = RedirectResponse(url=redirect_target, status_code=302)
-        resp.delete_cookie(self.session_cookie_name)
+        target = redirect_target or self.client.end_session_endpoint or "/"
+        resp = response if response is not None else RedirectResponse(url=target, status_code=302)
+        self.clear_session_cookie(resp)
         return resp
-
-    def establish_session(self, identity: Identity) -> str:
-        """Register a verified Identity and return a new session ID."""
-        session_id = secrets.token_urlsafe(32)
-        self.sessions[session_id] = identity
-        return session_id
 
     def handle_callback(
         self,
@@ -739,17 +924,25 @@ class OIDCAuthAdapter:
         response: Optional[Response] = None,
         redirect_uri: Optional[str] = None,
         extra_params: Optional[dict[str, Any]] = None,
+        request: Optional[Request] = None,
+        pre_auth_session_id: Optional[str] = None,
     ) -> tuple[Identity, str]:
-        """Authenticate user from callback, establish session, and return Identity and session_id."""
+        """Authenticate user from callback, establish session with fixation barrier, and return Identity and session_id."""
         identity, _ = self.client.process_callback(
             code=code,
             state=state,
             redirect_uri=redirect_uri,
             extra_params=extra_params,
         )
-        session_id = self.establish_session(identity)
+        if pre_auth_session_id is None and request is not None:
+            pre_auth_session_id = self.extract_session_id(request)
+
+        session_id = self.establish_session(
+            identity=identity,
+            pre_auth_session_id=pre_auth_session_id,
+        )
         if response is not None:
-            response.set_cookie(self.session_cookie_name, session_id, httponly=True, samesite="lax")
+            self.set_session_cookie(response, session_id)
         return identity, session_id
 
     async def ahandle_callback(
@@ -759,15 +952,53 @@ class OIDCAuthAdapter:
         response: Optional[Response] = None,
         redirect_uri: Optional[str] = None,
         extra_params: Optional[dict[str, Any]] = None,
+        request: Optional[Request] = None,
+        pre_auth_session_id: Optional[str] = None,
     ) -> tuple[Identity, str]:
-        """Asynchronously authenticate user from callback, establish session, and return Identity and session_id."""
+        """Asynchronously authenticate user from callback, establish session with fixation barrier, and return Identity and session_id."""
         identity, _ = await self.client.aprocess_callback(
             code=code,
             state=state,
             redirect_uri=redirect_uri,
             extra_params=extra_params,
         )
-        session_id = self.establish_session(identity)
+        if pre_auth_session_id is None and request is not None:
+            pre_auth_session_id = self.extract_session_id(request)
+
+        session_id = self.establish_session(
+            identity=identity,
+            pre_auth_session_id=pre_auth_session_id,
+        )
         if response is not None:
-            response.set_cookie(self.session_cookie_name, session_id, httponly=True, samesite="lax")
+            self.set_session_cookie(response, session_id)
+        return identity, session_id
+
+    def authenticate_and_establish_session(
+        self,
+        username: str,
+        password: Optional[str] = None,
+        scope: Optional[str] = None,
+        pre_auth_session_id: Optional[str] = None,
+        response: Optional[Response] = None,
+    ) -> tuple[Identity, str]:
+        """Authenticate user with password grant and establish session with fixation barrier."""
+        identity, _ = self.client.authenticate_user(username=username, password=password, scope=scope)
+        session_id = self.establish_session(identity, pre_auth_session_id=pre_auth_session_id)
+        if response is not None:
+            self.set_session_cookie(response, session_id)
+        return identity, session_id
+
+    async def aauthenticate_and_establish_session(
+        self,
+        username: str,
+        password: Optional[str] = None,
+        scope: Optional[str] = None,
+        pre_auth_session_id: Optional[str] = None,
+        response: Optional[Response] = None,
+    ) -> tuple[Identity, str]:
+        """Asynchronously authenticate user with password grant and establish session with fixation barrier."""
+        identity, _ = await self.client.aauthenticate_user(username=username, password=password, scope=scope)
+        session_id = self.establish_session(identity, pre_auth_session_id=pre_auth_session_id)
+        if response is not None:
+            self.set_session_cookie(response, session_id)
         return identity, session_id

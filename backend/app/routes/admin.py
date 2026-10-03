@@ -3,7 +3,7 @@ import io
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -25,6 +25,7 @@ router = APIRouter(tags=["Admin"])
 
 
 def require_admin(
+    request: Request,
     remote_user: Annotated[
         str | None,
         Header(
@@ -34,13 +35,21 @@ def require_admin(
         ),
     ] = None,
 ) -> str:
-    """Security invariant: require verified Remote-User header from Authelia."""
-    if not remote_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Not authenticated",
-        )
-    return remote_user
+    """Security invariant: require verified Remote-User header from Authelia or authenticated admin session."""
+    if remote_user:
+        return remote_user
+
+    from .auth import get_auth_adapter
+
+    adapter = get_auth_adapter()
+    identity = adapter.current_identity(request)
+    if identity and "bdinvite_admins" in identity.groups:
+        return identity.subject
+
+    raise HTTPException(
+        status_code=401,
+        detail="Not authenticated",
+    )
 
 
 AdminDep = Annotated[str, Depends(require_admin)]

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .routes import admin, config, rsvp
+from .routes import admin, auth, config, rsvp
 from .services.config import seed_default_config
 
 
@@ -90,6 +90,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Register API routes with exact path prefixes per specification
 app.include_router(rsvp.router, prefix="/birthday/api")
 app.include_router(config.router, prefix="/birthday/api")
+app.include_router(auth.router, prefix="/birthday/api/auth")
 app.include_router(admin.router, prefix="/birthday/api/admin")
 
 
