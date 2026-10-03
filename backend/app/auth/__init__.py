@@ -1,4 +1,14 @@
 from .adapter import OIDCAuthAdapter
+from .dependencies import (
+    AdminDep,
+    AuthenticatedDep,
+    CurrentIdentityDep,
+    get_auth_adapter,
+    get_current_identity,
+    require_admin,
+    require_authenticated,
+    require_group,
+)
 from .identity import Identity
 from .oidc import (
     AuthorizationRequest,
@@ -27,8 +37,11 @@ from .session import (
 )
 
 __all__ = [
+    "AdminDep",
     "AuthPort",
+    "AuthenticatedDep",
     "AuthorizationRequest",
+    "CurrentIdentityDep",
     "DiscoveryError",
     "Identity",
     "InMemorySessionStore",
@@ -48,6 +61,11 @@ __all__ = [
     "generate_code_verifier",
     "generate_nonce",
     "generate_state",
+    "get_auth_adapter",
+    "get_current_identity",
+    "require_admin",
+    "require_authenticated",
+    "require_group",
     "sign_session_cookie",
     "unsign_session_cookie",
 ]

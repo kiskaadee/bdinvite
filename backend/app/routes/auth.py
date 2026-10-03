@@ -3,36 +3,11 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from ..auth import Identity, InMemorySessionStore, OIDCAuthAdapter, OIDCClient
-from ..config import settings
+from ..auth import Identity, OIDCAuthAdapter
+from ..auth.dependencies import get_auth_adapter
 from ..schemas import LoginRequest, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
-_auth_adapter_instance: Optional[OIDCAuthAdapter] = None
-
-
-def get_auth_adapter() -> OIDCAuthAdapter:
-    """Dependency provider returning singleton OIDCAuthAdapter instance."""
-    global _auth_adapter_instance
-    if _auth_adapter_instance is None:
-        client = OIDCClient(
-            issuer=settings.OIDC_ISSUER,
-            client_id=settings.OIDC_CLIENT_ID,
-            client_secret=settings.OIDC_CLIENT_SECRET,
-            redirect_uri=settings.OIDC_REDIRECT_URI,
-            groups_claim=settings.OIDC_GROUPS_CLAIM,
-        )
-        _auth_adapter_instance = OIDCAuthAdapter(
-            oidc_client=client,
-            session_cookie_name=settings.SESSION_COOKIE_NAME,
-            session_store=InMemorySessionStore(),
-            cookie_secure=settings.SESSION_COOKIE_SECURE,
-            cookie_samesite=settings.SESSION_COOKIE_SAMESITE,
-            session_max_age=settings.SESSION_MAX_AGE_SECONDS,
-            secret_key=settings.SESSION_SECRET_KEY,
-        )
-    return _auth_adapter_instance
 
 
 AuthAdapterDep = Annotated[OIDCAuthAdapter, Depends(get_auth_adapter)]
