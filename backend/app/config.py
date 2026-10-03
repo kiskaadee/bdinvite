@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
     DATABASE_URL: str = "sqlite:///./data/bdinvite.db"
     DATA_DIR: str = "./data"
+    OIDC_ISSUER: str = "http://localhost:8088/default"
+    OIDC_CLIENT_ID: str = "bdinvite-client"
+    OIDC_CLIENT_SECRET: str = "bdinvite-secret"
+    OIDC_REDIRECT_URI: str = "http://localhost:8000/birthday/api/auth/callback"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
