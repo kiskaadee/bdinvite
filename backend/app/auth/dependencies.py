@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Annotated, Optional, cast
+from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.params import Depends as DependsClass
@@ -10,7 +10,7 @@ from .identity import Identity
 from .oidc import OIDCClient
 from .session import InMemorySessionStore
 
-_auth_adapter_instance: Optional[OIDCAuthAdapter] = None
+_auth_adapter_instance: OIDCAuthAdapter | None = None
 
 
 def get_auth_adapter() -> OIDCAuthAdapter:
@@ -38,17 +38,19 @@ def get_auth_adapter() -> OIDCAuthAdapter:
 
 def get_current_identity(
     request: Request,
-    adapter: OIDCAuthAdapter = Depends(get_auth_adapter),
-) -> Optional[Identity]:
+    adapter: Annotated[OIDCAuthAdapter | None, Depends(get_auth_adapter)] = None,
+) -> Identity | None:
     """Resolves the active Identity from the session/adapter, or None if unauthenticated."""
     resolved_adapter: OIDCAuthAdapter = (
-        get_auth_adapter() if isinstance(cast(object, adapter), DependsClass) else adapter
+        get_auth_adapter()
+        if adapter is None or isinstance(cast(object, adapter), DependsClass)
+        else adapter
     )
     return resolved_adapter.current_identity(request)
 
 
 def require_authenticated(
-    identity: Optional[Identity] = Depends(get_current_identity),
+    identity: Annotated[Identity | None, Depends(get_current_identity)] = None,
 ) -> Identity:
     """Enforces authentication, raising HTTP 401 Unauthorized if anonymous."""
     if isinstance(cast(object, identity), DependsClass) or identity is None:
@@ -67,7 +69,7 @@ def require_group(group_name: str) -> Callable[..., Identity]:
     """
 
     def _group_dependency(
-        identity: Identity = Depends(require_authenticated),
+        identity: Annotated[Identity | None, Depends(require_authenticated)] = None,
     ) -> Identity:
         if isinstance(cast(object, identity), DependsClass) or identity is None:
             raise HTTPException(
@@ -90,7 +92,7 @@ def require_group(group_name: str) -> Callable[..., Identity]:
 
 require_admin: Callable[..., Identity] = require_group("bdinvite_admins")
 
-CurrentIdentityDep = Annotated[Optional[Identity], Depends(get_current_identity)]
+CurrentIdentityDep = Annotated[Identity | None, Depends(get_current_identity)]
 AuthenticatedDep = Annotated[Identity, Depends(require_authenticated)]
 AdminDep = Annotated[Identity, Depends(require_admin)]
 

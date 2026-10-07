@@ -40,7 +40,9 @@ def oidc_client() -> OIDCClient:
 # ==============================================================================
 
 
-def test_forged_or_invalid_csrf_state_returns_400(client: TestClient, oidc_client: OIDCClient):
+def test_forged_or_invalid_csrf_state_returns_400(
+    client: TestClient, oidc_client: OIDCClient
+):
     """Forged, tampered, missing, or expired CSRF state returns HTTP 400 Bad Request."""
     # 1. Direct unit assertion: oidc_client rejects unknown state with InvalidStateError (400)
     with pytest.raises(InvalidStateError) as exc_info:
@@ -111,7 +113,9 @@ def test_forged_or_tampered_id_token_signature_returns_401(oidc_client: OIDCClie
     claims = json.loads(payload_bytes)
     claims["sub"] = "hacked_admin_identity"
     claims["groups"] = ["bdinvite_admins", "root"]
-    tampered_payload_b64 = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    tampered_payload_b64 = (
+        base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    )
     tampered_token = f"{parts[0]}.{tampered_payload_b64}.{parts[2]}"
 
     with pytest.raises(InvalidTokenError) as exc_info_tampered:
@@ -201,7 +205,9 @@ def test_missing_or_invalid_pkce_code_verifier_returns_401(oidc_client: OIDCClie
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        code = urllib.parse.parse_qs(urllib.parse.urlparse(resp.headers["location"]).query)["code"][0]
+        code = urllib.parse.parse_qs(
+            urllib.parse.urlparse(resp.headers["location"]).query
+        )["code"][0]
 
     with pytest.raises(InvalidPKCEError) as exc_mismatch:
         oidc_client.exchange_code(
@@ -218,7 +224,9 @@ def test_missing_or_invalid_pkce_code_verifier_returns_401(oidc_client: OIDCClie
 # ==============================================================================
 
 
-def test_expired_id_token_returns_401(oidc_client: OIDCClient, monkeypatch: pytest.MonkeyPatch):
+def test_expired_id_token_returns_401(
+    oidc_client: OIDCClient, monkeypatch: pytest.MonkeyPatch
+):
     """Expired ID token is rejected with HTTP 401 Unauthorized."""
     import datetime
 
@@ -300,7 +308,9 @@ def test_tampered_session_cookie_signature_returns_401(client: TestClient):
 # ==============================================================================
 
 
-def test_authenticated_non_admin_accessing_admin_apis_returns_403(guest_client: TestClient):
+def test_authenticated_non_admin_accessing_admin_apis_returns_403(
+    guest_client: TestClient,
+):
     """Authenticated non-admin user (guest@example.com with groups: ['guests']) receives HTTP 403."""
     admin_endpoints = [
         ("GET", "/birthday/api/admin/rsvps"),
@@ -314,7 +324,9 @@ def test_authenticated_non_admin_accessing_admin_apis_returns_403(guest_client: 
     ]
     for method, path in admin_endpoints:
         res = guest_client.request(method, path)
-        assert res.status_code == 403, f"{method} {path} must return 403 Forbidden for non-admin"
+        assert res.status_code == 403, (
+            f"{method} {path} must return 403 Forbidden for non-admin"
+        )
         assert "Forbidden" in res.json().get("detail", "")
 
 
@@ -344,7 +356,9 @@ def test_legacy_remote_user_header_without_session_returns_401(client: TestClien
         assert res_me.status_code == 401
 
 
-def test_legacy_remote_user_header_cannot_escalate_non_admin_session(guest_client: TestClient):
+def test_legacy_remote_user_header_cannot_escalate_non_admin_session(
+    guest_client: TestClient,
+):
     """An attacker passing Remote-User: admin with an active non-admin session cookie receives HTTP 403."""
     res = guest_client.get(
         "/birthday/api/admin/rsvps",
@@ -392,7 +406,10 @@ def test_deployment_independence_multi_mode_configuration():
     assert prod_settings.is_production is True
     assert prod_settings.SESSION_COOKIE_SECURE is True
     assert prod_settings.OIDC_ISSUER == "https://auth.roadtotech.me"
-    assert prod_settings.OIDC_REDIRECT_URI == "https://demos.roadtotech.me/birthday/api/auth/callback"
+    assert (
+        prod_settings.OIDC_REDIRECT_URI
+        == "https://demos.roadtotech.me/birthday/api/auth/callback"
+    )
 
 
 # ==============================================================================
@@ -429,4 +446,7 @@ def test_static_architectural_assertion_no_runtime_remote_user():
                 if term in content:
                     violations.append(f"{src_file}: contains '{term}'")
 
-    assert not violations, "Architectural boundary violated by runtime Remote-User occurrences:\n" + "\n".join(violations)
+    assert not violations, (
+        "Architectural boundary violated by runtime Remote-User occurrences:\n"
+        + "\n".join(violations)
+    )

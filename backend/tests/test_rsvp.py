@@ -19,12 +19,12 @@ def test_normalize_phone_valid_cases():
 
 def test_normalize_phone_invalid_cases():
     invalid_cases = [
-        "123456",            # Too short
-        "1234567890",        # Doesn't start with 3
-        "+1 555 123 4567",   # US format
-        "30012345678",       # Too long
-        "",                  # Empty
-        "abcdefghij",        # Non-digits
+        "123456",  # Too short
+        "1234567890",  # Doesn't start with 3
+        "+1 555 123 4567",  # US format
+        "30012345678",  # Too long
+        "",  # Empty
+        "abcdefghij",  # Non-digits
     ]
     for raw in invalid_cases:
         with pytest.raises(ValueError, match="Formato de teléfono inválido"):

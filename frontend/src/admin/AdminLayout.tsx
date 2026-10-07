@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { type CurrentUser, fetchCurrentUser, logoutUser } from "../api/client";
 import { Spinner } from "../components/Spinner";
@@ -6,8 +6,16 @@ import { Spinner } from "../components/Spinner";
 export function AdminLayout() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loggedOut, setLoggedOut] = useState<boolean>(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("logged_out") === "1") {
+      setLoading(false);
+      setLoggedOut(true);
+      return;
+    }
+
     let isMounted = true;
     fetchCurrentUser()
       .then((userData) => {
@@ -28,15 +36,16 @@ export function AdminLayout() {
     };
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logoutUser();
     } catch (err) {
       console.error("Logout failed:", err);
     }
     setUser(null);
-    window.location.href = "/birthday/api/auth/login";
-  };
+    setLoggedOut(true);
+    window.history.replaceState(null, "", "/birthday/admin?logged_out=1");
+  }, []);
 
   if (loading) {
     return (
@@ -55,7 +64,7 @@ export function AdminLayout() {
     );
   }
 
-  if (!user) {
+  if (loggedOut || !user) {
     return (
       <div
         style={{
@@ -63,23 +72,82 @@ export function AdminLayout() {
           backgroundColor: "#0f0f10",
           color: "#f0f0f0",
           fontFamily: "var(--font-body)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "1rem",
         }}
       >
-        <p>No autenticado. Redirigiendo al inicio de sesión...</p>
-        <a
-          href="/birthday/api/auth/login"
+        <header
           style={{
-            color: "var(--color-gold-light, #e0be75)",
-            textDecoration: "underline",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+            backgroundColor: "#161618",
+            padding: "1rem 1.8rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          Iniciar sesión
-        </a>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+            <span style={{ fontSize: "1.4rem" }}>🎂</span>
+            <h1
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                color: "#ffffff",
+                textTransform: "uppercase",
+              }}
+            >
+              Panel de Control · Invitación
+            </h1>
+          </div>
+          <a
+            href="/birthday/api/auth/login"
+            data-testid="login-link"
+            style={{
+              color: "var(--color-gold-light, #e0be75)",
+              textDecoration: "none",
+              fontSize: "0.88rem",
+              fontWeight: 500,
+            }}
+          >
+            Iniciar Sesión
+          </a>
+        </header>
+
+        <div
+          data-testid="unauthenticated-state"
+          style={{
+            maxWidth: "480px",
+            margin: "4rem auto",
+            textAlign: "center",
+            padding: "2.5rem 1.5rem",
+            backgroundColor: "#161618",
+            borderRadius: "8px",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+          }}
+        >
+          <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
+          <h2 style={{ fontSize: "1.3rem", fontWeight: 600, color: "#fff", marginBottom: "0.6rem" }}>
+            Sesión Finalizada
+          </h2>
+          <p style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "0.9rem", marginBottom: "1.8rem" }}>
+            Has cerrado sesión correctamente. No hay sesión autenticada activa.
+          </p>
+          <a
+            href="/birthday/api/auth/login"
+            data-testid="login-btn"
+            style={{
+              display: "inline-block",
+              padding: "0.65rem 1.5rem",
+              backgroundColor: "var(--color-gold, #c5a059)",
+              color: "#0a0a0a",
+              fontWeight: 600,
+              borderRadius: "4px",
+              textDecoration: "none",
+              fontSize: "0.9rem",
+            }}
+          >
+            Iniciar Sesión
+          </a>
+        </div>
       </div>
     );
   }

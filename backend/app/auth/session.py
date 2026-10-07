@@ -4,7 +4,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from .identity import Identity
 
@@ -14,7 +14,7 @@ class SessionData:
     """Represents an application-level browser session."""
 
     session_id: str
-    identity: Optional[Identity] = None
+    identity: Identity | None = None
     created_at: float = field(default_factory=time.time)
     expires_at: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -24,7 +24,7 @@ class SessionData:
         """Return True if session has a verified identity."""
         return self.identity is not None
 
-    def is_expired(self, current_time: Optional[float] = None) -> bool:
+    def is_expired(self, current_time: float | None = None) -> bool:
         """Check whether the session has passed its expiration timestamp."""
         now = current_time if current_time is not None else time.time()
         return now >= self.expires_at
@@ -36,15 +36,15 @@ class SessionStore(Protocol):
 
     def create_session(
         self,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
         max_age_seconds: int = 86400,
-        pre_auth_session_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        pre_auth_session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SessionData:
         """Create a fresh session. If pre_auth_session_id is provided, invalidate it (Session Fixation Protection)."""
         ...
 
-    def get_session(self, session_id: str) -> Optional[SessionData]:
+    def get_session(self, session_id: str) -> SessionData | None:
         """Retrieve a session by its identifier. Returns None if absent or expired."""
         ...
 
@@ -70,10 +70,10 @@ class InMemorySessionStore:
 
     def create_session(
         self,
-        identity: Optional[Identity] = None,
+        identity: Identity | None = None,
         max_age_seconds: int = 86400,
-        pre_auth_session_id: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        pre_auth_session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SessionData:
         """Create a brand new session, enforcing the Session Fixation Barrier."""
         with self._lock:
@@ -87,7 +87,10 @@ class InMemorySessionStore:
             # Generate fresh, unguessable cryptographic token
             while True:
                 new_session_id = secrets.token_urlsafe(32)
-                if new_session_id != pre_auth_session_id and new_session_id not in self._sessions:
+                if (
+                    new_session_id != pre_auth_session_id
+                    and new_session_id not in self._sessions
+                ):
                     break
 
             session = SessionData(
@@ -100,7 +103,7 @@ class InMemorySessionStore:
             self._sessions[new_session_id] = session
             return session
 
-    def get_session(self, session_id: str) -> Optional[SessionData]:
+    def get_session(self, session_id: str) -> SessionData | None:
         """Fetch session, automatically purging if expired."""
         if not session_id or not isinstance(session_id, str):
             return None
@@ -149,7 +152,7 @@ def sign_session_cookie(session_id: str, secret_key: str) -> str:
     return f"{session_id}.{mac}"
 
 
-def unsign_session_cookie(cookie_val: Optional[str], secret_key: str) -> Optional[str]:
+def unsign_session_cookie(cookie_val: str | None, secret_key: str) -> str | None:
     """Verify HMAC-SHA256 signature and return verified session_id, or None if tampered/invalid."""
     if not cookie_val or not isinstance(cookie_val, str) or not cookie_val.strip():
         return None

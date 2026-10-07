@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -14,7 +13,7 @@ class Identity:
 
     subject: str
     email: str
-    name: Optional[str] = None
+    name: str | None = None
     groups: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:

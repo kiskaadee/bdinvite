@@ -1,7 +1,7 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 
 from ..auth import Identity, OIDCAuthAdapter
 from ..auth.dependencies import get_auth_adapter
@@ -71,13 +71,17 @@ def direct_login_endpoint(
 def callback_endpoint(
     request: Request,
     adapter: AuthAdapterDep,
-    code: Annotated[str, Query(description="Código de autorización devuelto por el IdP")],
+    code: Annotated[
+        str, Query(description="Código de autorización devuelto por el IdP")
+    ],
     state: Annotated[str, Query(description="Token de estado para validación CSRF")],
 ):
     token_response = adapter.oidc_client.exchange_code(code=code, state=state)
     identity = adapter.oidc_client.extract_identity(token_response.claims)
 
-    redirect_response = RedirectResponse(url="/birthday/admin", status_code=status.HTTP_302_FOUND)
+    redirect_response = RedirectResponse(
+        url="/birthday/admin", status_code=status.HTTP_302_FOUND
+    )
     adapter.create_session(
         identity=identity,
         request=request,
@@ -96,7 +100,7 @@ def me_endpoint(
     request: Request,
     adapter: AuthAdapterDep,
 ):
-    identity: Optional[Identity] = adapter.current_identity(request)
+    identity: Identity | None = adapter.current_identity(request)
     if identity is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

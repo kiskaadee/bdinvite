@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
-
 def normalize_phone(raw: str) -> str:
     """Normalize Colombian mobile numbers.
 
@@ -127,8 +126,6 @@ class RSVPUpdate(BaseModel):
         return cleaned.lower()
 
 
-
-
 class RSVPSuccessResponse(BaseModel):
     result: Literal["SUCCESS"] = Field(
         default="SUCCESS",
@@ -168,11 +165,27 @@ class RSVPErrorResponse(BaseModel):
 
 
 class RSVPAdminItem(BaseModel):
-    id: int = Field(..., description="Identificador único del registro en base de datos", examples=[1])
-    name: str = Field(..., description="Nombre completo del asistente", examples=["Ana García"])
-    phone: str = Field(..., description="Número telefónico normalizado a 10 dígitos", examples=["3001234567"])
-    email: str | None = Field(default=None, description="Correo electrónico registrado", examples=["ana@example.com"])
-    created_at: datetime = Field(..., description="Marca de tiempo UTC de la confirmación")
+    id: int = Field(
+        ...,
+        description="Identificador único del registro en base de datos",
+        examples=[1],
+    )
+    name: str = Field(
+        ..., description="Nombre completo del asistente", examples=["Ana García"]
+    )
+    phone: str = Field(
+        ...,
+        description="Número telefónico normalizado a 10 dígitos",
+        examples=["3001234567"],
+    )
+    email: str | None = Field(
+        default=None,
+        description="Correo electrónico registrado",
+        examples=["ana@example.com"],
+    )
+    created_at: datetime = Field(
+        ..., description="Marca de tiempo UTC de la confirmación"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -183,10 +196,13 @@ class RSVPAdminItem(BaseModel):
         return dt.isoformat()
 
 
-
 class RSVPListResponse(BaseModel):
-    count: int = Field(..., description="Cantidad total de confirmaciones encontradas", examples=[37])
-    rsvps: list[RSVPAdminItem] = Field(..., description="Lista de asistentes confirmados")
+    count: int = Field(
+        ..., description="Cantidad total de confirmaciones encontradas", examples=[37]
+    )
+    rsvps: list[RSVPAdminItem] = Field(
+        ..., description="Lista de asistentes confirmados"
+    )
 
 
 class InvitationConfigBase(BaseModel):
@@ -376,8 +392,12 @@ class InvitationConfigUpdate(InvitationConfigBase):
 
 
 class InvitationConfigResponse(InvitationConfigBase):
-    id: int = Field(default=1, description="Identificador único del registro singleton (siempre 1)")
-    updated_at: datetime | None = Field(default=None, description="Última modificación en UTC")
+    id: int = Field(
+        default=1, description="Identificador único del registro singleton (siempre 1)"
+    )
+    updated_at: datetime | None = Field(
+        default=None, description="Última modificación en UTC"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -390,7 +410,6 @@ class InvitationConfigResponse(InvitationConfigBase):
         return dt.isoformat()
 
 
-
 class GenerateMapPreviewRequest(BaseModel):
     map_url: str | None = Field(
         default=None,
@@ -400,14 +419,18 @@ class GenerateMapPreviewRequest(BaseModel):
 
 
 class GenerateMapPreviewResponse(BaseModel):
-    map_preview_url: str = Field(description="URL para acceder a la imagen de vista previa generada")
+    map_preview_url: str = Field(
+        description="URL para acceder a la imagen de vista previa generada"
+    )
     lat: float = Field(description="Latitud resuelta")
     lng: float = Field(description="Longitud resuelta")
     message: str = Field(default="Vista previa generada con éxito")
 
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., description="Nombre de usuario o correo para autenticación OIDC")
+    username: str = Field(
+        ..., description="Nombre de usuario o correo para autenticación OIDC"
+    )
     password: str = Field(..., description="Contraseña de usuario")
 
 
@@ -415,5 +438,6 @@ class UserResponse(BaseModel):
     subject: str = Field(..., description="Identificador único del usuario (sub)")
     email: str = Field(..., description="Correo electrónico del usuario")
     name: str | None = Field(default=None, description="Nombre visible del usuario")
-    groups: list[str] = Field(default_factory=list, description="Grupos o roles asignados al usuario")
-
+    groups: list[str] = Field(
+        default_factory=list, description="Grupos o roles asignados al usuario"
+    )

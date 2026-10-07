@@ -1,6 +1,7 @@
+import contextlib
 import threading
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 import uvicorn
@@ -31,13 +32,11 @@ def live_server() -> Generator[str, None, None]:
 
     ready = False
     for _ in range(50):
-        try:
+        with contextlib.suppress(Exception):
             r = httpx.get(f"{BASE_URL}/birthday/api/docs", timeout=0.5)
             if r.status_code == 200:
                 ready = True
                 break
-        except Exception:
-            pass
         time.sleep(0.1)
 
     assert ready, "Server failed to start in time"
@@ -74,7 +73,7 @@ def test_browser_sso_complete_interactive_loop(
     page: Page,
 ):
     """Complete browser SSO acceptance test (CP7).
-    
+
     Verifies:
     1. Browser navigates to /birthday/admin -> redirected to OIDC login form.
     2. Form submitted with admin@example.com / password123.
@@ -99,7 +98,9 @@ def test_browser_sso_complete_interactive_loop(
     assert page.url.endswith("/birthday/admin")
 
     cookies = browser_context.cookies()
-    session_cookie = next((c for c in cookies if c.get("name") == "bdinvite_session"), None)
+    session_cookie = next(
+        (c for c in cookies if c.get("name") == "bdinvite_session"), None
+    )
     assert session_cookie is not None, "bdinvite_session cookie must be set"
     assert session_cookie.get("httpOnly") is True, "Session cookie must be HttpOnly"
 
@@ -118,7 +119,13 @@ def test_browser_sso_complete_interactive_loop(
     assert logout_btn.is_visible()
     logout_btn.click()
 
-    # Verify navigation returns to unauthenticated state (redirect to OIDC authorize)
+    # UI displays unauthenticated state screen
+    page.wait_for_selector("[data-testid='unauthenticated-state']", timeout=10000)
+    assert page.locator("[data-testid='unauthenticated-state']").is_visible()
+    assert page.locator("text=Sesión Finalizada").is_visible()
+
+    # Re-clicking login initiates fresh OIDC flow
+    page.locator("[data-testid='login-btn']").click()
     page.wait_for_url("**/authorize**", timeout=10000)
     assert "authorize" in page.url
 

@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Annotated
 
+import pytest
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
-import pytest
 
 from app.auth import (
     Identity,
@@ -24,8 +24,8 @@ REDIRECT_URI = "http://localhost:8000/birthday/api/auth/callback"
 
 
 def create_dummy_request(
-    headers: Optional[dict[str, str]] = None,
-    cookies: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
+    cookies: dict[str, str] | None = None,
 ) -> Request:
     """Construct a lightweight ASGI Request instance for unit testing dependencies."""
     raw_headers: list[tuple[bytes, bytes]] = [
@@ -73,8 +73,12 @@ def test_app() -> FastAPI:
     """Isolated FastAPI test harness registering dependency endpoints."""
     app = FastAPI(title="Dependency Test Harness")
 
+    event_planners_dep = require_group("event_planners")
+
     @app.get("/test/identity")
-    def route_identity(identity: Optional[Identity] = Depends(get_current_identity)):
+    def route_identity(
+        identity: Annotated[Identity | None, Depends(get_current_identity)],
+    ):
         if identity is None:
             return {"authenticated": False, "identity": None}
         return {
@@ -85,7 +89,9 @@ def test_app() -> FastAPI:
         }
 
     @app.get("/test/authenticated")
-    def route_authenticated(identity: Identity = Depends(require_authenticated)):
+    def route_authenticated(
+        identity: Annotated[Identity, Depends(require_authenticated)],
+    ):
         return {
             "subject": identity.subject,
             "email": identity.email,
@@ -93,7 +99,7 @@ def test_app() -> FastAPI:
         }
 
     @app.get("/test/admin")
-    def route_admin(admin: Identity = Depends(require_admin)):
+    def route_admin(admin: Annotated[Identity, Depends(require_admin)]):
         return {
             "subject": admin.subject,
             "email": admin.email,
@@ -101,7 +107,7 @@ def test_app() -> FastAPI:
         }
 
     @app.get("/test/custom-group")
-    def route_custom_group(member: Identity = Depends(require_group("event_planners"))):
+    def route_custom_group(member: Annotated[Identity, Depends(event_planners_dep)]):
         return {
             "subject": member.subject,
             "groups": member.groups,

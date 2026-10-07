@@ -1,8 +1,5 @@
-import time
-from typing import Optional
-
 import pytest
-from fastapi import Request, Response
+from fastapi import Request
 from fastapi.responses import Response as StarletteResponse
 from fastapi.testclient import TestClient
 
@@ -14,8 +11,6 @@ from app.auth import (
     sign_session_cookie,
     unsign_session_cookie,
 )
-from app.config import settings
-from app.main import app
 from app.routes.auth import get_auth_adapter
 
 LIVE_ISSUER = "http://localhost:8088/default"
@@ -216,7 +211,9 @@ def test_adapter_current_identity_resolution(auth_adapter: OIDCAuthAdapter):
     assert resolved == identity
 
     # 3. Unknown / non-existent session ID -> None
-    fake_signed = sign_session_cookie("non-existent-session-id", auth_adapter.secret_key)
+    fake_signed = sign_session_cookie(
+        "non-existent-session-id", auth_adapter.secret_key
+    )
     unknown_req = create_dummy_request(cookies={"bdinvite_session": fake_signed})
     assert auth_adapter.current_identity(unknown_req) is None
 
@@ -230,8 +227,12 @@ def test_adapter_current_identity_resolution(auth_adapter: OIDCAuthAdapter):
     assert auth_adapter.current_identity(malformed_req) is None
 
     # 6. Expired session -> None
-    expired_session = auth_adapter.session_store.create_session(identity=identity, max_age_seconds=-10)
-    exp_cookie = sign_session_cookie(expired_session.session_id, auth_adapter.secret_key)
+    expired_session = auth_adapter.session_store.create_session(
+        identity=identity, max_age_seconds=-10
+    )
+    exp_cookie = sign_session_cookie(
+        expired_session.session_id, auth_adapter.secret_key
+    )
     exp_req = create_dummy_request(cookies={"bdinvite_session": exp_cookie})
     assert auth_adapter.current_identity(exp_req) is None
 
@@ -332,7 +333,9 @@ def test_http_session_fixation_rotation_on_login(client: TestClient):
     assert pre_auth_cookie is not None
 
     # 2. Pre-auth session resolves to unauthorized
-    resp_anon = client.get("/birthday/api/auth/me", cookies={"bdinvite_session": pre_auth_cookie})
+    resp_anon = client.get(
+        "/birthday/api/auth/me", cookies={"bdinvite_session": pre_auth_cookie}
+    )
     assert resp_anon.status_code == 401
 
     # 3. Authenticate while presenting pre_auth_cookie
@@ -349,11 +352,15 @@ def test_http_session_fixation_rotation_on_login(client: TestClient):
     assert pre_auth_cookie != post_auth_cookie
 
     # 5. Pre-auth cookie MUST NOT have been promoted
-    resp_old = client.get("/birthday/api/auth/me", cookies={"bdinvite_session": pre_auth_cookie})
+    resp_old = client.get(
+        "/birthday/api/auth/me", cookies={"bdinvite_session": pre_auth_cookie}
+    )
     assert resp_old.status_code == 401
 
     # 6. Post-auth cookie resolves to authenticated user
-    resp_valid = client.get("/birthday/api/auth/me", cookies={"bdinvite_session": post_auth_cookie})
+    resp_valid = client.get(
+        "/birthday/api/auth/me", cookies={"bdinvite_session": post_auth_cookie}
+    )
     assert resp_valid.status_code == 200
     assert resp_valid.json()["subject"] == "admin-001"
     assert "bdinvite_admins" in resp_valid.json()["groups"]
@@ -398,11 +405,15 @@ def test_http_logout_invalidates_session_and_clears_cookie(client: TestClient):
     assert cookie_val is not None
 
     # Verify session is authenticated
-    me_resp = client.get("/birthday/api/auth/me", cookies={"bdinvite_session": cookie_val})
+    me_resp = client.get(
+        "/birthday/api/auth/me", cookies={"bdinvite_session": cookie_val}
+    )
     assert me_resp.status_code == 200
 
     # 2. Logout via POST
-    logout_resp = client.post("/birthday/api/auth/logout", cookies={"bdinvite_session": cookie_val})
+    logout_resp = client.post(
+        "/birthday/api/auth/logout", cookies={"bdinvite_session": cookie_val}
+    )
     assert logout_resp.status_code == 200
     assert logout_resp.json()["status"] == "ok"
 
@@ -412,5 +423,7 @@ def test_http_logout_invalidates_session_and_clears_cookie(client: TestClient):
     assert "max-age=0" in set_cookie.lower()
 
     # 3. Subsequent request with the same cookie is rejected
-    me_after = client.get("/birthday/api/auth/me", cookies={"bdinvite_session": cookie_val})
+    me_after = client.get(
+        "/birthday/api/auth/me", cookies={"bdinvite_session": cookie_val}
+    )
     assert me_after.status_code == 401

@@ -15,7 +15,9 @@ class RSVP(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    phone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
+    phone: Mapped[str] = mapped_column(
+        String(20), nullable=False, unique=True, index=True
+    )
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
@@ -26,14 +28,20 @@ class InvitationConfig(Base):
     __tablename__ = "invitation_config"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    title: Mapped[str] = mapped_column(String(200), nullable=False, default="Birthday Party")
+    title: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="Birthday Party"
+    )
     invitation_text: Mapped[str] = mapped_column(
         String(500),
         nullable=False,
         default="You're invited to the birthday party honoring",
     )
-    honoree_name: Mapped[str] = mapped_column(String(200), nullable=False, default="Isabelle Snow")
-    event_date: Mapped[str] = mapped_column(String(20), nullable=False, default="2026-10-28")
+    honoree_name: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="Isabelle Snow"
+    )
+    event_date: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="2026-10-28"
+    )
     event_time: Mapped[str] = mapped_column(String(10), nullable=False, default="19:00")
     event_timezone: Mapped[str] = mapped_column(
         String(50), nullable=False, default="America/Bogota"
@@ -56,11 +64,15 @@ class InvitationConfig(Base):
         nullable=False,
         default="https://maps.google.com/?q=Fresco+Ristorante+Glendale+CA",
     )
-    rsvp_heading: Mapped[str] = mapped_column(String(100), nullable=False, default="¿Nos vemos?")
+    rsvp_heading: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="¿Nos vemos?"
+    )
     rsvp_cta: Mapped[str] = mapped_column(
         String(100), nullable=False, default="CONFIRMA TU ASISTENCIA"
     )
-    submit_label: Mapped[str] = mapped_column(String(100), nullable=False, default="TE VEO AHÍ")
+    submit_label: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="TE VEO AHÍ"
+    )
     msg_success: Mapped[str] = mapped_column(
         String(300),
         nullable=False,

@@ -1,4 +1,5 @@
-from typing import Literal, Optional
+import contextlib
+from typing import Literal
 
 from fastapi import Request, Response
 from fastapi.responses import RedirectResponse
@@ -23,11 +24,11 @@ class OIDCAuthAdapter(AuthPort):
         self,
         oidc_client: OIDCClient,
         session_cookie_name: str = settings.SESSION_COOKIE_NAME,
-        session_store: Optional[SessionStore] = None,
-        cookie_secure: Optional[bool] = None,
-        cookie_samesite: Optional[Literal["lax", "strict", "none"]] = None,
-        session_max_age: Optional[int] = None,
-        secret_key: Optional[str] = None,
+        session_store: SessionStore | None = None,
+        cookie_secure: bool | None = None,
+        cookie_samesite: Literal["lax", "strict", "none"] | None = None,
+        session_max_age: int | None = None,
+        secret_key: str | None = None,
     ) -> None:
         self.oidc_client = oidc_client
         self.session_cookie_name = session_cookie_name
@@ -35,21 +36,31 @@ class OIDCAuthAdapter(AuthPort):
             session_store if session_store is not None else InMemorySessionStore()
         )
         self.cookie_secure: bool = (
-            cookie_secure if cookie_secure is not None else settings.SESSION_COOKIE_SECURE
+            cookie_secure
+            if cookie_secure is not None
+            else settings.SESSION_COOKIE_SECURE
         )
         self.cookie_samesite: Literal["lax", "strict", "none"] = (
-            cookie_samesite if cookie_samesite is not None else settings.SESSION_COOKIE_SAMESITE
+            cookie_samesite
+            if cookie_samesite is not None
+            else settings.SESSION_COOKIE_SAMESITE
         )
         self.session_max_age: int = (
-            session_max_age if session_max_age is not None else settings.SESSION_MAX_AGE_SECONDS
+            session_max_age
+            if session_max_age is not None
+            else settings.SESSION_MAX_AGE_SECONDS
         )
         self.secret_key: str = (
             secret_key if secret_key is not None else settings.SESSION_SECRET_KEY
         )
 
-    def parse_session_cookie(self, cookie_value: Optional[str]) -> Optional[str]:
+    def parse_session_cookie(self, cookie_value: str | None) -> str | None:
         """Extract and verify session_id from cookie, safely rejecting tampered cookies."""
-        if not cookie_value or not isinstance(cookie_value, str) or not cookie_value.strip():
+        if (
+            not cookie_value
+            or not isinstance(cookie_value, str)
+            or not cookie_value.strip()
+        ):
             return None
 
         # 1. Attempt HMAC signature verification
@@ -71,7 +82,7 @@ class OIDCAuthAdapter(AuthPort):
 
         return None
 
-    def current_identity(self, request: Request) -> Optional[Identity]:
+    def current_identity(self, request: Request) -> Identity | None:
         """Resolve the validated identity associated with the incoming request.
 
         Identity Origin Integrity:
@@ -83,10 +94,9 @@ class OIDCAuthAdapter(AuthPort):
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:].strip()
-            try:
+            with contextlib.suppress(Exception):
                 return self.oidc_client.extract_identity_from_token(token)
-            except Exception:
-                return None
+            return None
 
         # 2. Browser session cookie
         raw_cookie = request.cookies.get(self.session_cookie_name)
@@ -105,16 +115,15 @@ class OIDCAuthAdapter(AuthPort):
             return None
 
         # Fallback for backward compatibility with CP3 token-in-cookie tests
-        try:
+        with contextlib.suppress(Exception):
             return self.oidc_client.extract_identity_from_token(raw_cookie)
-        except Exception:
-            return None
+        return None
 
     def set_session_cookie(
         self,
         response: Response,
         session_id: str,
-        max_age: Optional[int] = None,
+        max_age: int | None = None,
     ) -> None:
         """Issue session cookie enforcing HttpOnly=True, SameSite, and configurable Secure flag."""
         signed_val = sign_session_cookie(session_id, self.secret_key)
@@ -140,11 +149,11 @@ class OIDCAuthAdapter(AuthPort):
 
     def create_session(
         self,
-        identity: Optional[Identity] = None,
-        request: Optional[Request] = None,
-        response: Optional[Response] = None,
-        pre_auth_session_id: Optional[str] = None,
-        max_age_seconds: Optional[int] = None,
+        identity: Identity | None = None,
+        request: Request | None = None,
+        response: Response | None = None,
+        pre_auth_session_id: str | None = None,
+        max_age_seconds: int | None = None,
     ) -> SessionData:
         """Create session with Session Fixation Protection.
 
@@ -172,7 +181,9 @@ class OIDCAuthAdapter(AuthPort):
             assert session.session_id != candidate_pre_auth
 
         if response is not None:
-            self.set_session_cookie(response, session.session_id, max_age=effective_max_age)
+            self.set_session_cookie(
+                response, session.session_id, max_age=effective_max_age
+            )
 
         return session
 
@@ -183,8 +194,13 @@ class OIDCAuthAdapter(AuthPort):
 
         # Issue pre-authentication session if request does not already possess one
         raw_cookie = request.cookies.get(self.session_cookie_name)
-        existing_session_id = self.parse_session_cookie(raw_cookie) if raw_cookie else None
-        if not existing_session_id or self.session_store.get_session(existing_session_id) is None:
+        existing_session_id = (
+            self.parse_session_cookie(raw_cookie) if raw_cookie else None
+        )
+        if (
+            not existing_session_id
+            or self.session_store.get_session(existing_session_id) is None
+        ):
             pre_auth = self.session_store.create_session(
                 identity=None,
                 max_age_seconds=self.session_max_age,

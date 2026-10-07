@@ -1,15 +1,16 @@
 import base64
+import contextlib
 import hashlib
 import secrets
 import string
 import time
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import HTTPException, status
 import httpx
 import jwt
+from fastapi import HTTPException, status
 
 from .identity import Identity
 
@@ -38,14 +39,18 @@ class OIDCError(HTTPException):
 class InvalidStateError(OIDCError):
     """Raised when the state parameter is missing, invalid, or expired (CSRF protection)."""
 
-    def __init__(self, detail: str = "Invalid, missing, or expired state parameter") -> None:
+    def __init__(
+        self, detail: str = "Invalid, missing, or expired state parameter"
+    ) -> None:
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 class MismatchedNonceError(OIDCError):
     """Raised when the nonce in the ID token does not match the request nonce (Replay protection)."""
 
-    def __init__(self, detail: str = "Mismatched or missing nonce claim in ID token") -> None:
+    def __init__(
+        self, detail: str = "Mismatched or missing nonce claim in ID token"
+    ) -> None:
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 
@@ -59,14 +64,18 @@ class InvalidTokenError(OIDCError):
 class DiscoveryError(OIDCError):
     """Raised when dynamic OIDC discovery configuration cannot be retrieved or parsed."""
 
-    def __init__(self, detail: str = "Failed to fetch or parse OIDC discovery document") -> None:
+    def __init__(
+        self, detail: str = "Failed to fetch or parse OIDC discovery document"
+    ) -> None:
         super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
 
 class TokenExchangeError(OIDCError):
     """Raised when the token endpoint returns an error during authorization code exchange."""
 
-    def __init__(self, detail: str = "Failed to exchange authorization code for tokens") -> None:
+    def __init__(
+        self, detail: str = "Failed to exchange authorization code for tokens"
+    ) -> None:
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
@@ -83,7 +92,7 @@ class OIDCConfig:
 
     issuer: str
     client_id: str
-    client_secret: Optional[str] = None
+    client_secret: str | None = None
     redirect_uri: str = "http://localhost:8000/birthday/api/auth/callback"
     scopes: list[str] = field(default_factory=lambda: list(DEFAULT_SCOPES))
     groups_claim: str = "groups"
@@ -136,10 +145,10 @@ class TokenResponse:
     """Result of token endpoint exchange and cryptographic validation."""
 
     id_token: str
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
-    token_type: Optional[str] = None
-    expires_in: Optional[int] = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str | None = None
+    expires_in: int | None = None
     raw: dict[str, Any] = field(default_factory=dict)
     claims: dict[str, Any] = field(default_factory=dict)
 
@@ -147,14 +156,18 @@ class TokenResponse:
 def generate_code_verifier(length: int = 64) -> str:
     """Generate cryptographically secure PKCE code_verifier (RFC 7636 Section 4.1)."""
     if not (43 <= length <= 128):
-        raise ValueError("PKCE code_verifier length must be between 43 and 128 characters")
+        raise ValueError(
+            "PKCE code_verifier length must be between 43 and 128 characters"
+        )
     return "".join(secrets.choice(PKCE_CHARSET) for _ in range(length))
 
 
 def compute_code_challenge(code_verifier: str) -> str:
     """Derive PKCE code_challenge using SHA-256 (RFC 7636 Section 4.2)."""
     if not (43 <= len(code_verifier) <= 128):
-        raise ValueError("PKCE code_verifier length must be between 43 and 128 characters")
+        raise ValueError(
+            "PKCE code_verifier length must be between 43 and 128 characters"
+        )
     digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
 
@@ -174,15 +187,15 @@ class OIDCClient:
 
     def __init__(
         self,
-        config: Optional[OIDCConfig] = None,
+        config: OIDCConfig | None = None,
         *,
-        issuer: Optional[str] = None,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        redirect_uri: Optional[str] = None,
-        scopes: Optional[list[str]] = None,
-        groups_claim: Optional[str] = None,
-        discovery_doc: Optional[dict[str, Any]] = None,
+        issuer: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        redirect_uri: str | None = None,
+        scopes: list[str] | None = None,
+        groups_claim: str | None = None,
+        discovery_doc: dict[str, Any] | None = None,
         timeout: float = 10.0,
         max_state_age_seconds: float = 600.0,
     ) -> None:
@@ -190,20 +203,23 @@ class OIDCClient:
             self.config = config
         else:
             if not issuer or not client_id:
-                raise ValueError("Both 'issuer' and 'client_id' are required if 'config' is not supplied")
+                raise ValueError(
+                    "Both 'issuer' and 'client_id' are required if 'config' is not supplied"
+                )
             self.config = OIDCConfig(
                 issuer=issuer,
                 client_id=client_id,
                 client_secret=client_secret,
-                redirect_uri=redirect_uri or "http://localhost:8000/birthday/api/auth/callback",
+                redirect_uri=redirect_uri
+                or "http://localhost:8000/birthday/api/auth/callback",
                 scopes=scopes if scopes is not None else list(DEFAULT_SCOPES),
                 groups_claim=groups_claim or "groups",
             )
 
         self.timeout = timeout
         self.max_state_age_seconds = max_state_age_seconds
-        self._discovery_doc: Optional[dict[str, Any]] = discovery_doc
-        self._jwks_client: Optional[jwt.PyJWKClient] = None
+        self._discovery_doc: dict[str, Any] | None = discovery_doc
+        self._jwks_client: jwt.PyJWKClient | None = None
         self._transactions: dict[str, OIDCTransaction] = {}
 
     def get_discovery_document(self, refresh: bool = False) -> dict[str, Any]:
@@ -221,19 +237,25 @@ class OIDCClient:
                     )
                 data = response.json()
                 if not isinstance(data, dict):
-                    raise DiscoveryError("Discovery document root must be a JSON object")
+                    raise DiscoveryError(
+                        "Discovery document root must be a JSON object"
+                    )
                 self._discovery_doc = data
                 return data
         except DiscoveryError:
             raise
         except Exception as e:
-            raise DiscoveryError(f"Failed to fetch discovery document from {discovery_url}: {e}") from e
+            raise DiscoveryError(
+                f"Failed to fetch discovery document from {discovery_url}: {e}"
+            ) from e
 
     def _get_discovery_field(self, field_name: str) -> str:
         doc = self.get_discovery_document()
         val = doc.get(field_name)
         if not val or not isinstance(val, str):
-            raise DiscoveryError(f"Discovery document missing required field: {field_name}")
+            raise DiscoveryError(
+                f"Discovery document missing required field: {field_name}"
+            )
         return val
 
     @property
@@ -249,13 +271,13 @@ class OIDCClient:
         return self._get_discovery_field("jwks_uri")
 
     @property
-    def userinfo_endpoint(self) -> Optional[str]:
+    def userinfo_endpoint(self) -> str | None:
         doc = self.get_discovery_document()
         val = doc.get("userinfo_endpoint")
         return str(val) if val else None
 
     @property
-    def end_session_endpoint(self) -> Optional[str]:
+    def end_session_endpoint(self) -> str | None:
         doc = self.get_discovery_document()
         val = doc.get("end_session_endpoint")
         return str(val) if val else None
@@ -276,7 +298,9 @@ class OIDCClient:
     def get_jwks_client(self, refresh: bool = False) -> jwt.PyJWKClient:
         """Obtain or cache PyJWKClient for signing key resolution."""
         if self._jwks_client is None or refresh:
-            self._jwks_client = jwt.PyJWKClient(self.jwks_uri, cache_jwk_set=True, lifespan=3600)
+            self._jwks_client = jwt.PyJWKClient(
+                self.jwks_uri, cache_jwk_set=True, lifespan=3600
+            )
         return self._jwks_client
 
     def save_transaction(self, transaction: OIDCTransaction) -> None:
@@ -287,13 +311,14 @@ class OIDCClient:
     def _prune_expired_transactions(self) -> None:
         now = time.time()
         expired = [
-            s for s, tx in self._transactions.items()
+            s
+            for s, tx in self._transactions.items()
             if now - tx.created_at > self.max_state_age_seconds
         ]
         for s in expired:
             self._transactions.pop(s, None)
 
-    def validate_state(self, state: Optional[str]) -> OIDCTransaction:
+    def validate_state(self, state: str | None) -> OIDCTransaction:
         """Validate state parameter against pending transactions, rejecting CSRF attacks with HTTP 400."""
         self._prune_expired_transactions()
         if not state or not isinstance(state, str) or not state.strip():
@@ -307,16 +332,18 @@ class OIDCClient:
 
     def create_authorization_url(
         self,
-        state: Optional[str] = None,
-        nonce: Optional[str] = None,
-        code_verifier: Optional[str] = None,
-        scopes: Optional[list[str]] = None,
-        extra_params: Optional[dict[str, str]] = None,
+        state: str | None = None,
+        nonce: str | None = None,
+        code_verifier: str | None = None,
+        scopes: list[str] | None = None,
+        extra_params: dict[str, str] | None = None,
     ) -> AuthorizationRequest:
         """Generate authorization URL with PKCE (S256), cryptographic state, and nonce."""
         actual_state = state if state is not None else generate_state()
         actual_nonce = nonce if nonce is not None else generate_nonce()
-        actual_verifier = code_verifier if code_verifier is not None else generate_code_verifier()
+        actual_verifier = (
+            code_verifier if code_verifier is not None else generate_code_verifier()
+        )
 
         code_challenge = compute_code_challenge(actual_verifier)
 
@@ -357,22 +384,24 @@ class OIDCClient:
         try:
             return jwks_client.get_signing_key_from_jwt(token)
         except jwt.PyJWKClientError as e:
-            try:
+            with contextlib.suppress(Exception):
                 jwk_set = jwks_client.get_jwk_set()
                 if jwk_set and len(jwk_set.keys) == 1:
                     return jwk_set.keys[0]
-            except Exception:
-                pass
             raise InvalidTokenError(f"Signing key not found in JWKS: {e}") from e
         except jwt.DecodeError as e:
-            raise InvalidTokenError(f"ID token signature is invalid or tampered: {e}") from e
+            raise InvalidTokenError(
+                f"ID token signature is invalid or tampered: {e}"
+            ) from e
         except Exception as e:
-            raise InvalidTokenError(f"Error resolving signing key from JWKS: {e}") from e
+            raise InvalidTokenError(
+                f"Error resolving signing key from JWKS: {e}"
+            ) from e
 
     def verify_id_token(
         self,
         id_token: str,
-        nonce: Optional[str] = None,
+        nonce: str | None = None,
         leeway: float = 60.0,
     ) -> dict[str, Any]:
         """Cryptographically validate returned ID token.
@@ -408,7 +437,9 @@ class OIDCClient:
         except jwt.ExpiredSignatureError as e:
             raise InvalidTokenError(f"ID token has expired: {e}") from e
         except (jwt.InvalidSignatureError, jwt.DecodeError) as e:
-            raise InvalidTokenError(f"ID token signature is invalid or tampered: {e}") from e
+            raise InvalidTokenError(
+                f"ID token signature is invalid or tampered: {e}"
+            ) from e
         except (jwt.InvalidAudienceError, jwt.InvalidIssuerError) as e:
             raise InvalidTokenError(f"ID token claims validation failed: {e}") from e
         except jwt.PyJWTError as e:
@@ -427,10 +458,10 @@ class OIDCClient:
     def exchange_code(
         self,
         code: str,
-        state: Optional[str] = None,
-        code_verifier: Optional[str] = None,
-        nonce: Optional[str] = None,
-        extra_token_params: Optional[dict[str, str]] = None,
+        state: str | None = None,
+        code_verifier: str | None = None,
+        nonce: str | None = None,
+        extra_token_params: dict[str, str] | None = None,
     ) -> TokenResponse:
         """Exchange authorization code for tokens using PKCE code_verifier and cryptographically verify ID token."""
         if not code or not isinstance(code, str) or not code.strip():
@@ -455,11 +486,17 @@ class OIDCClient:
         elif resolved_verifier is None:
             raise InvalidPKCEError("Missing PKCE code_verifier")
 
-        if resolved_verifier is None or not isinstance(resolved_verifier, str) or not resolved_verifier.strip():
+        if (
+            resolved_verifier is None
+            or not isinstance(resolved_verifier, str)
+            or not resolved_verifier.strip()
+        ):
             raise InvalidPKCEError("Missing or invalid PKCE code_verifier")
 
         # Validate code_verifier length and character set per RFC 7636
-        if not (43 <= len(resolved_verifier) <= 128) or not all(c in PKCE_CHARSET for c in resolved_verifier):
+        if not (43 <= len(resolved_verifier) <= 128) or not all(
+            c in PKCE_CHARSET for c in resolved_verifier
+        ):
             raise InvalidPKCEError(
                 "Invalid PKCE code_verifier: length must be between 43 and 128 unreserved characters"
             )
@@ -473,7 +510,7 @@ class OIDCClient:
         if extra_token_params:
             data.update(extra_token_params)
 
-        auth: Optional[httpx.BasicAuth] = None
+        auth: httpx.BasicAuth | None = None
         if self.config.client_secret:
             auth = httpx.BasicAuth(self.config.client_id, self.config.client_secret)
             data["client_id"] = self.config.client_id
@@ -497,19 +534,23 @@ class OIDCClient:
                         headers={"Accept": "application/json"},
                     )
         except Exception as e:
-            raise TokenExchangeError(f"Failed to communicate with token endpoint: {e}") from e
+            raise TokenExchangeError(
+                f"Failed to communicate with token endpoint: {e}"
+            ) from e
 
         if response.status_code != 200:
             error_data: dict[str, Any] = {}
-            try:
+            with contextlib.suppress(Exception):
                 parsed = response.json()
                 if isinstance(parsed, dict):
                     error_data = parsed
-            except Exception:
-                pass
             err_desc = str(error_data.get("error_description", "")).lower()
             err_code = str(error_data.get("error", "")).lower()
-            if "pkce" in err_desc or "code_verifier" in err_desc or "invalid_grant" in err_code:
+            if (
+                "pkce" in err_desc
+                or "code_verifier" in err_desc
+                or "invalid_grant" in err_code
+            ):
                 raise InvalidPKCEError(
                     f"PKCE verification failed: {error_data.get('error_description') or error_data.get('error') or response.text}"
                 )
@@ -564,13 +605,21 @@ class OIDCClient:
             email = f"{subject}@{self.config.client_id}.local"
 
         name_val = claims.get("name")
-        name = str(name_val).strip() if name_val and isinstance(name_val, str) and name_val.strip() else None
+        name = (
+            str(name_val).strip()
+            if name_val and isinstance(name_val, str) and name_val.strip()
+            else None
+        )
 
         raw_groups = _extract_claim_path(claims, self.config.groups_claim)
         if isinstance(raw_groups, str):
             groups = [raw_groups.strip()] if raw_groups.strip() else []
         elif isinstance(raw_groups, (list, tuple, set)):
-            groups = [str(g).strip() for g in raw_groups if isinstance(g, str) and str(g).strip()]
+            groups = [
+                str(g).strip()
+                for g in raw_groups
+                if isinstance(g, str) and str(g).strip()
+            ]
         else:
             groups = []
 
@@ -587,7 +636,7 @@ class OIDCClient:
     def extract_identity_from_token(
         self,
         id_token: str,
-        nonce: Optional[str] = None,
+        nonce: str | None = None,
         leeway: float = 60.0,
     ) -> Identity:
         """Cryptographically verify ID token and extract domain Identity with origin integrity."""
@@ -598,7 +647,7 @@ class OIDCClient:
         self,
         username: str,
         password: str,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
     ) -> tuple[TokenResponse, Identity]:
         """Authenticate using resource owner password credentials against IdP and extract Identity.
 
@@ -618,7 +667,7 @@ class OIDCClient:
             "scope": " ".join(query_scopes),
         }
 
-        auth: Optional[httpx.BasicAuth] = None
+        auth: httpx.BasicAuth | None = None
         if self.config.client_secret:
             auth = httpx.BasicAuth(self.config.client_id, self.config.client_secret)
             data["client_secret"] = self.config.client_secret
@@ -639,7 +688,9 @@ class OIDCClient:
                         headers={"Accept": "application/json"},
                     )
         except Exception as e:
-            raise TokenExchangeError(f"Failed to communicate with token endpoint: {e}") from e
+            raise TokenExchangeError(
+                f"Failed to communicate with token endpoint: {e}"
+            ) from e
 
         if response.status_code != 200:
             raise TokenExchangeError(

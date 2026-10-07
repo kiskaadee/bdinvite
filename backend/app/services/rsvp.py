@@ -113,5 +113,3 @@ def update_rsvp(
     except Exception:
         db.rollback()
         raise
-
-

@@ -1,4 +1,4 @@
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from fastapi import Request, Response
 
@@ -13,7 +13,7 @@ class AuthPort(Protocol):
     mechanisms (such as OIDC, OAuth, ForwardAuth, or session providers).
     """
 
-    def current_identity(self, request: Request) -> Optional[Identity]:
+    def current_identity(self, request: Request) -> Identity | None:
         """Resolve the validated identity associated with the incoming request.
 
         Returns None if the request is unauthenticated or credentials/session are invalid.

@@ -1,10 +1,7 @@
 from dataclasses import FrozenInstanceError
-from typing import Optional
 
-from fastapi import Request, Response
-from fastapi.responses import RedirectResponse
-import httpx
 import pytest
+from fastapi import Request, Response
 
 from app.auth import (
     AuthPort,
@@ -12,8 +9,6 @@ from app.auth import (
     InvalidTokenError,
     OIDCAuthAdapter,
     OIDCClient,
-    OIDCConfig,
-    TokenExchangeError,
 )
 
 LIVE_ISSUER = "http://localhost:8088/default"
@@ -34,8 +29,8 @@ def oidc_client() -> OIDCClient:
 
 
 def create_dummy_request(
-    headers: Optional[dict[str, str]] = None,
-    cookies: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
+    cookies: dict[str, str] | None = None,
 ) -> Request:
     raw_headers = [
         (k.lower().encode("latin-1"), v.encode("latin-1"))
@@ -91,7 +86,9 @@ def test_identity_resolution_missing_email_and_name_defaults(oidc_client: OIDCCl
     assert identity.groups == []
 
 
-def test_identity_resolution_missing_subject_raises_invalid_token(oidc_client: OIDCClient):
+def test_identity_resolution_missing_subject_raises_invalid_token(
+    oidc_client: OIDCClient,
+):
     """Missing or empty sub claim raises InvalidTokenError."""
     with pytest.raises(InvalidTokenError, match="missing required 'sub' claim"):
         oidc_client.extract_identity({})
@@ -112,10 +109,14 @@ def test_identity_groups_extraction_clean_defaults(oidc_client: OIDCClient):
     assert oidc_client.extract_identity({"sub": "u1", "groups": []}).groups == []
 
     # Single string group
-    assert oidc_client.extract_identity({"sub": "u1", "groups": "single_role"}).groups == ["single_role"]
+    assert oidc_client.extract_identity(
+        {"sub": "u1", "groups": "single_role"}
+    ).groups == ["single_role"]
 
     # Tuple / Set collections
-    assert oidc_client.extract_identity({"sub": "u1", "groups": ("admin", "editor")}).groups == ["admin", "editor"]
+    assert oidc_client.extract_identity(
+        {"sub": "u1", "groups": ("admin", "editor")}
+    ).groups == ["admin", "editor"]
 
     # Discard non-string, empty strings, and trim whitespace
     claims = {"sub": "u1", "groups": ["  admin  ", "", "  ", 123, None, "editor"]}
@@ -150,7 +151,9 @@ def test_identity_groups_configurable_claim_path():
     assert nested_client.extract_identity(claims_nested).groups == ["app_admin", "user"]
 
     # Nested path missing
-    assert nested_client.extract_identity({"sub": "u1", "realm_access": {}}).groups == []
+    assert (
+        nested_client.extract_identity({"sub": "u1", "realm_access": {}}).groups == []
+    )
     assert nested_client.extract_identity({"sub": "u1"}).groups == []
 
 
@@ -208,7 +211,9 @@ def test_live_fixture_guest_user_authentication(oidc_client: OIDCClient):
 # ==============================================================================
 
 
-def test_identity_origin_integrity_rejection_of_unvalidated_request_headers(oidc_client: OIDCClient):
+def test_identity_origin_integrity_rejection_of_unvalidated_request_headers(
+    oidc_client: OIDCClient,
+):
     """Application adapter rejects constructing Identity from raw request headers or client data."""
     adapter = OIDCAuthAdapter(oidc_client=oidc_client)
 
@@ -241,7 +246,9 @@ def test_identity_origin_integrity_rejection_of_tampered_token(oidc_client: OIDC
         oidc_client.extract_identity_from_token(tampered_sig_token)
 
     # Case 2: Adapter with tampered token in Authorization header returns None
-    bad_request = create_dummy_request(headers={"Authorization": f"Bearer {tampered_sig_token}"})
+    bad_request = create_dummy_request(
+        headers={"Authorization": f"Bearer {tampered_sig_token}"}
+    )
     adapter = OIDCAuthAdapter(oidc_client=oidc_client)
     assert adapter.current_identity(bad_request) is None
 
@@ -284,7 +291,9 @@ def test_oidc_auth_adapter_current_identity_with_valid_bearer(oidc_client: OIDCC
     )
 
     adapter = OIDCAuthAdapter(oidc_client=oidc_client)
-    req = create_dummy_request(headers={"Authorization": f"Bearer {token_resp.id_token}"})
+    req = create_dummy_request(
+        headers={"Authorization": f"Bearer {token_resp.id_token}"}
+    )
 
     resolved = adapter.current_identity(req)
     assert resolved == expected_identity
@@ -300,7 +309,9 @@ def test_oidc_auth_adapter_current_identity_with_valid_cookie(oidc_client: OIDCC
         password="password123",
     )
 
-    adapter = OIDCAuthAdapter(oidc_client=oidc_client, session_cookie_name="bdinvite_session")
+    adapter = OIDCAuthAdapter(
+        oidc_client=oidc_client, session_cookie_name="bdinvite_session"
+    )
     req = create_dummy_request(cookies={"bdinvite_session": token_resp.id_token})
 
     resolved = adapter.current_identity(req)
@@ -324,7 +335,9 @@ def test_oidc_auth_adapter_login_redirect(oidc_client: OIDCClient):
 
 def test_oidc_auth_adapter_logout_redirect_and_clears_cookie(oidc_client: OIDCClient):
     """OIDCAuthAdapter logout returns 302 redirect and deletes the session cookie."""
-    adapter = OIDCAuthAdapter(oidc_client=oidc_client, session_cookie_name="bdinvite_session")
+    adapter = OIDCAuthAdapter(
+        oidc_client=oidc_client, session_cookie_name="bdinvite_session"
+    )
     req = create_dummy_request()
 
     response = adapter.logout(req)

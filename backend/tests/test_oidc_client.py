@@ -2,7 +2,6 @@ import base64
 import json
 import urllib.parse
 
-from fastapi import HTTPException
 import httpx
 import pytest
 
@@ -12,7 +11,6 @@ from app.auth import (
     InvalidTokenError,
     MismatchedNonceError,
     OIDCClient,
-    OIDCConfig,
     compute_code_challenge,
     generate_code_verifier,
     generate_nonce,
@@ -40,7 +38,9 @@ def test_pkce_generation_and_challenge():
     verifier = generate_code_verifier(64)
     assert len(verifier) == 64
     # RFC 7636 Section 4.1 unreserved characters
-    unreserved = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+    unreserved = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
+    )
     assert all(c in unreserved for c in verifier)
 
     # Length bounds validation
@@ -139,7 +139,9 @@ def test_rejection_of_invalid_state_400(oidc_client: OIDCClient):
     assert exc_info.value.status_code == 400
 
 
-def test_live_oidc_successful_code_exchange_and_id_token_validation(oidc_client: OIDCClient):
+def test_live_oidc_successful_code_exchange_and_id_token_validation(
+    oidc_client: OIDCClient,
+):
     """End-to-end integration test: code exchange, ID token validation, and Identity extraction."""
     # 1. Create authorization request with PKCE and transaction secrets
     auth_req = oidc_client.create_authorization_url()
@@ -150,15 +152,19 @@ def test_live_oidc_successful_code_exchange_and_id_token_validation(oidc_client:
             auth_req.url,
             data={
                 "username": "alice",
-                "claims": json.dumps({
-                    "email": "alice@example.com",
-                    "name": "Alice In Chains",
-                    "groups": ["family", "vip"],
-                }),
+                "claims": json.dumps(
+                    {
+                        "email": "alice@example.com",
+                        "name": "Alice In Chains",
+                        "groups": ["family", "vip"],
+                    }
+                ),
             },
             follow_redirects=False,
         )
-        assert resp.status_code == 302, f"Expected 302 redirect from mock IdP, got {resp.status_code}"
+        assert resp.status_code == 302, (
+            f"Expected 302 redirect from mock IdP, got {resp.status_code}"
+        )
         redirect_url = resp.headers["location"]
 
     qs = urllib.parse.parse_qs(urllib.parse.urlparse(redirect_url).query)
@@ -207,7 +213,9 @@ def test_rejection_of_mismatched_nonce_401(oidc_client: OIDCClient):
 
     # Verifying valid token against wrong nonce MUST raise MismatchedNonceError (HTTP 401)
     with pytest.raises(MismatchedNonceError) as exc_info:
-        oidc_client.verify_id_token(token_resp.id_token, nonce="completely_different_nonce")
+        oidc_client.verify_id_token(
+            token_resp.id_token, nonce="completely_different_nonce"
+        )
     assert exc_info.value.status_code == 401
     assert "does not match expected nonce" in str(exc_info.value.detail)
 
@@ -246,7 +254,9 @@ def test_rejection_of_tampered_id_token_signature_401(oidc_client: OIDCClient):
     payload_raw = parts[1] + "=="
     payload = json.loads(base64.urlsafe_b64decode(payload_raw))
     payload["sub"] = "mallory_attacker"
-    tampered_payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    tampered_payload_b64 = (
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    )
     tampered_payload_token = f"{parts[0]}.{tampered_payload_b64}.{parts[2]}"
 
     with pytest.raises(InvalidTokenError) as exc_info:
@@ -302,5 +312,9 @@ def test_architectural_isolation_no_domain_route_crypto_imports():
     for route_file in routes_dir.glob("*.py"):
         content = route_file.read_text(encoding="utf-8")
         for term in disallowed_terms:
-            assert f"import {term}" not in content, f"{route_file.name} violates isolation by importing {term}"
-            assert f"from {term}" not in content, f"{route_file.name} violates isolation by importing from {term}"
+            assert f"import {term}" not in content, (
+                f"{route_file.name} violates isolation by importing {term}"
+            )
+            assert f"from {term}" not in content, (
+                f"{route_file.name} violates isolation by importing from {term}"
+            )

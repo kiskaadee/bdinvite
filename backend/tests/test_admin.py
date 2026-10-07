@@ -28,8 +28,18 @@ def test_remote_user_header_strictly_ignored(client: TestClient):
     assert res.json() == {"detail": "Not authenticated"}
 
     # Also verify across other admin routes
-    assert client.get("/birthday/api/admin/export", headers={"Remote-User": "kiskaadee"}).status_code == 401
-    assert client.get("/birthday/api/admin/config", headers={"Remote-User": "kiskaadee"}).status_code == 401
+    assert (
+        client.get(
+            "/birthday/api/admin/export", headers={"Remote-User": "kiskaadee"}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.get(
+            "/birthday/api/admin/config", headers={"Remote-User": "kiskaadee"}
+        ).status_code
+        == 401
+    )
     assert (
         client.post(
             "/birthday/api/admin/map-preview/generate",
@@ -54,7 +64,9 @@ def test_admin_endpoints_authenticated_non_admin_forbidden(guest_client: TestCli
     ]
     for method, path in endpoints:
         res = guest_client.request(method, path)
-        assert res.status_code == 403, f"{method} {path} should reject non-admin with 403"
+        assert res.status_code == 403, (
+            f"{method} {path} should reject non-admin with 403"
+        )
         assert "Forbidden" in res.json()["detail"]
 
 
@@ -91,11 +103,19 @@ def test_admin_list_and_search_rsvps(admin_client: TestClient):
     # Add 3 invitees
     admin_client.post(
         "/birthday/api/rsvp",
-        json={"name": "Carlos Gomez", "phone": "300 111 2233", "email": "carlos@test.com"},
+        json={
+            "name": "Carlos Gomez",
+            "phone": "300 111 2233",
+            "email": "carlos@test.com",
+        },
     )
     admin_client.post(
         "/birthday/api/rsvp",
-        json={"name": "Maria Perez", "phone": "315 222 3344", "email": "maria@test.com"},
+        json={
+            "name": "Maria Perez",
+            "phone": "315 222 3344",
+            "email": "maria@test.com",
+        },
     )
     admin_client.post(
         "/birthday/api/rsvp",
@@ -124,7 +144,11 @@ def test_admin_list_and_search_rsvps(admin_client: TestClient):
 def test_admin_export_csv(admin_client: TestClient):
     admin_client.post(
         "/birthday/api/rsvp",
-        json={"name": "Sofia Vergara", "phone": "301 999 8877", "email": "sofia@hollywood.com"},
+        json={
+            "name": "Sofia Vergara",
+            "phone": "301 999 8877",
+            "email": "sofia@hollywood.com",
+        },
     )
 
     res = admin_client.get("/birthday/api/admin/export")
@@ -133,7 +157,11 @@ def test_admin_export_csv(admin_client: TestClient):
     assert 'filename="rsvps.csv"' in res.headers["content-disposition"]
 
     content = res.text
-    lines = content.strip().split("\r\n") if "\r\n" in content else content.strip().split("\n")
+    lines = (
+        content.strip().split("\r\n")
+        if "\r\n" in content
+        else content.strip().split("\n")
+    )
     assert lines[0] == "name,phone,email,created_at"
     assert "Sofia Vergara,3019998877,sofia@hollywood.com" in lines[1]
 
@@ -153,7 +181,11 @@ def test_admin_delete_rsvp(client: TestClient):
     # Create an RSVP
     client.post(
         "/birthday/api/rsvp",
-        json={"name": "Lucas Silva", "phone": "300 444 5566", "email": "lucas@test.com"},
+        json={
+            "name": "Lucas Silva",
+            "phone": "300 444 5566",
+            "email": "lucas@test.com",
+        },
     )
     list_res = client.get("/birthday/api/admin/rsvps")
     assert list_res.status_code == 200
@@ -204,7 +236,11 @@ def test_admin_update_rsvp(client: TestClient):
     # Update Person One with valid new name and phone
     patch_res = client.patch(
         f"/birthday/api/admin/rsvps/{id_one}",
-        json={"name": "Person One Updated", "phone": "+57 300 999 8888", "email": "newone@test.com"},
+        json={
+            "name": "Person One Updated",
+            "phone": "+57 300 999 8888",
+            "email": "newone@test.com",
+        },
     )
     assert patch_res.status_code == 200
     updated_data = patch_res.json()

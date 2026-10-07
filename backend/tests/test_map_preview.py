@@ -1,6 +1,7 @@
 from unittest.mock import ANY, patch
 
 import pytest
+
 from app.config import settings
 from app.services.map_preview import (
     deg2num,
@@ -8,7 +9,6 @@ from app.services.map_preview import (
     is_google_maps_host,
     validate_google_maps_url_format,
 )
-
 from tests.conftest import login_client
 
 
@@ -29,7 +29,9 @@ def test_is_google_maps_host():
 
 def test_validate_google_maps_url_format():
     validate_google_maps_url_format("https://maps.app.goo.gl/354784424357732")
-    validate_google_maps_url_format("https://www.google.com/maps/place/Fresco/@34.1,-118.2,17z")
+    validate_google_maps_url_format(
+        "https://www.google.com/maps/place/Fresco/@34.1,-118.2,17z"
+    )
     validate_google_maps_url_format("https://maps.google.com/?q=34.1,-118.2")
 
     with pytest.raises(ValueError, match="no puede estar vacía"):
@@ -44,23 +46,33 @@ def test_validate_google_maps_url_format():
 
 def test_extract_coordinates_from_text():
     # 1. @lat,lng
-    coords = extract_coordinates_from_text("https://google.com/maps/place/Venue/@34.143245,-118.255132,17z")
+    coords = extract_coordinates_from_text(
+        "https://google.com/maps/place/Venue/@34.143245,-118.255132,17z"
+    )
     assert coords == (34.143245, -118.255132)
 
     # 2. !3dlat!4dlng
-    coords = extract_coordinates_from_text("https://google.com/maps/data=!4m6!3m5!1s0x0!8m2!3d4.6534!4d-74.0564")
+    coords = extract_coordinates_from_text(
+        "https://google.com/maps/data=!4m6!3m5!1s0x0!8m2!3d4.6534!4d-74.0564"
+    )
     assert coords == (4.6534, -74.0564)
 
     # 3. Query params: q=lat,lng
-    coords = extract_coordinates_from_text("https://maps.google.com/?q=34.1432,-118.2551")
+    coords = extract_coordinates_from_text(
+        "https://maps.google.com/?q=34.1432,-118.2551"
+    )
     assert coords == (34.1432, -118.2551)
 
     # 4. Query params: ll=lat,lng
-    coords = extract_coordinates_from_text("https://maps.google.com/maps?ll=34.1432,-118.2551&z=16")
+    coords = extract_coordinates_from_text(
+        "https://maps.google.com/maps?ll=34.1432,-118.2551&z=16"
+    )
     assert coords == (34.1432, -118.2551)
 
     # 5. Non-coordinate text
-    assert extract_coordinates_from_text("https://maps.google.com/?q=Eiffel+Tower") is None
+    assert (
+        extract_coordinates_from_text("https://maps.google.com/?q=Eiffel+Tower") is None
+    )
 
 
 def test_deg2num():
@@ -71,12 +83,17 @@ def test_deg2num():
 
 @patch("app.routes.admin.resolve_google_maps_coordinates")
 @patch("app.routes.admin.generate_map_preview_image")
-def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client, tmp_path):
+def test_admin_generate_map_preview_endpoint(
+    mock_generate, mock_resolve, client, tmp_path
+):
     mock_resolve.return_value = (34.1432, -118.2551, "https://resolved.url")
     mock_generate.return_value = tmp_path / "map_preview.png"
 
     # Test without auth -> 401
-    resp = client.post("/birthday/api/admin/map-preview/generate", json={"map_url": "https://maps.google.com/?q=34.1,-118.2"})
+    resp = client.post(
+        "/birthday/api/admin/map-preview/generate",
+        json={"map_url": "https://maps.google.com/?q=34.1,-118.2"},
+    )
     assert resp.status_code == 401
 
     # Test with auth -> 200
@@ -90,13 +107,17 @@ def test_admin_generate_map_preview_endpoint(mock_generate, mock_resolve, client
     assert "/birthday/api/map-preview.png" in data["map_preview_url"]
     assert data["lat"] == 34.1432
     assert data["lng"] == -118.2551
-    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1,-118.2", fallback_query=ANY)
+    mock_resolve.assert_called_once_with(
+        "https://maps.google.com/?q=34.1,-118.2", fallback_query=ANY
+    )
     mock_generate.assert_called_once_with(34.1432, -118.2551)
 
 
 @patch("app.routes.admin.resolve_google_maps_coordinates")
 @patch("app.routes.admin.generate_map_preview_image")
-def test_config_update_triggers_generator_only_when_map_url_changes(mock_generate, mock_resolve, admin_client, tmp_path):
+def test_config_update_triggers_generator_only_when_map_url_changes(
+    mock_generate, mock_resolve, admin_client, tmp_path
+):
     mock_resolve.return_value = (34.1432, -118.2551, "https://resolved.url")
     mock_generate.return_value = tmp_path / "map_preview.png"
 
@@ -120,7 +141,9 @@ def test_config_update_triggers_generator_only_when_map_url_changes(mock_generat
     assert resp.status_code == 200
     assert resp.json()["map_url"] == "https://maps.google.com/?q=34.1432,-118.2551"
     assert resp.json()["map_preview_url"] == "/birthday/api/map-preview.png"
-    mock_resolve.assert_called_once_with("https://maps.google.com/?q=34.1432,-118.2551", fallback_query=ANY)
+    mock_resolve.assert_called_once_with(
+        "https://maps.google.com/?q=34.1432,-118.2551", fallback_query=ANY
+    )
     mock_generate.assert_called_once_with(34.1432, -118.2551)
 
 

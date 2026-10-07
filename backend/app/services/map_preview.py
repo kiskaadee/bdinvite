@@ -1,3 +1,4 @@
+import contextlib
 import io
 import math
 import re
@@ -27,12 +28,10 @@ def is_google_maps_host(host: str) -> bool:
         return True
     if clean_host.startswith("maps.google."):
         return True
-    if clean_host == "google.com" or clean_host.endswith(".google.com") or clean_host.endswith(".google"):
+    if clean_host == "google.com" or clean_host.endswith((".google.com", ".google")):
         return True
     # Regional domains like google.es, google.co, google.com.co
-    if re.match(r"^(?:www\.)?google\.[a-z.]+$", clean_host):
-        return True
-    return False
+    return bool(re.match(r"^(?:www\.)?google\.[a-z.]+$", clean_host))
 
 
 def validate_google_maps_url_format(url: str) -> None:
@@ -74,7 +73,7 @@ def extract_coordinates_from_text(text: str) -> tuple[float, float] | None:
     if parsed.query:
         qs = parse_qs(parsed.query)
         for param in ("q", "ll", "destination"):
-            if param in qs and qs[param]:
+            if qs.get(param):
                 val = qs[param][0].strip()
                 m = re.match(r"^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$", val)
                 if m:
@@ -118,7 +117,9 @@ async def resolve_google_maps_coordinates(
                 if hop_coords:
                     return hop_coords[0], hop_coords[1], resolved_url
         except httpx.RequestError as exc:
-            raise ValueError(f"No se pudo resolver el enlace de Google Maps: {exc}") from exc
+            raise ValueError(
+                f"No se pudo resolver el enlace de Google Maps: {exc}"
+            ) from exc
 
     # Try extraction on the final resolved destination URL
     final_coords = extract_coordinates_from_text(resolved_url)
@@ -129,7 +130,7 @@ async def resolve_google_maps_coordinates(
     parsed = urlparse(resolved_url)
     qs = parse_qs(parsed.query)
     query_text = None
-    if "q" in qs and qs["q"]:
+    if qs.get("q"):
         query_text = qs["q"][0]
     elif "/place/" in parsed.path:
         # e.g. /maps/place/Fresco+Ristorante/...
@@ -153,9 +154,11 @@ async def resolve_google_maps_coordinates(
         candidates.append(query_text)
 
     if candidates:
-        async with httpx.AsyncClient(timeout=8.0, headers={"User-Agent": USER_AGENT}) as client:
+        async with httpx.AsyncClient(
+            timeout=8.0, headers={"User-Agent": USER_AGENT}
+        ) as client:
             for candidate in candidates:
-                try:
+                with contextlib.suppress(Exception):
                     nom_res = await client.get(
                         "https://nominatim.openstreetmap.org/search",
                         params={"q": candidate, "format": "json", "limit": 1},
@@ -167,8 +170,6 @@ async def resolve_google_maps_coordinates(
                             lng = float(results[0]["lon"])
                             if -90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0:
                                 return lat, lng, resolved_url
-                except Exception:
-                    pass
 
     raise ValueError(
         "No se pudieron extraer las coordenadas de la URL de Google Maps. "
@@ -207,18 +208,17 @@ async def generate_map_preview_image(
     # Canvas of 3x3 tiles = 768x768 pixels
     canvas = Image.new("RGB", (768, 768), color=(229, 227, 223))
 
-    async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": USER_AGENT}) as client:
+    async with httpx.AsyncClient(
+        timeout=10.0, headers={"User-Agent": USER_AGENT}
+    ) as client:
         for r_idx, y in enumerate(range(y_int - 1, y_int + 2)):
             for c_idx, x in enumerate(range(x_int - 1, x_int + 2)):
                 tile_url = f"https://tile.openstreetmap.org/{zoom}/{x}/{y}.png"
-                try:
+                with contextlib.suppress(Exception):
                     res = await client.get(tile_url)
                     if res.status_code == 200:
                         tile = Image.open(io.BytesIO(res.content)).convert("RGB")
                         canvas.paste(tile, (c_idx * 256, r_idx * 256))
-                except Exception:
-                    # Keep neutral background tile if individual tile fails
-                    pass
 
     # Exact target location within the 768x768 canvas
     cx = 256 + int(dx * 256)
@@ -236,7 +236,9 @@ async def generate_map_preview_image(
     draw.ellipse((192, 198, 208, 204), fill=(40, 40, 40, 140))
 
     # Golden pin pointer (inverted triangle)
-    draw.polygon([(188, 184), (212, 184), (200, 200)], fill="#d4a843", outline="#1a1a1a")
+    draw.polygon(
+        [(188, 184), (212, 184), (200, 200)], fill="#d4a843", outline="#1a1a1a"
+    )
 
     # Golden pin circular head
     draw.ellipse((188, 170, 212, 194), fill="#d4a843", outline="#1a1a1a", width=2)

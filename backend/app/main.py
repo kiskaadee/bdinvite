@@ -129,7 +129,9 @@ if os.path.isdir(ASSETS_DIR):
 
 @app.get("/birthday", include_in_schema=False)
 async def redirect_birthday_slash():
-    return RedirectResponse(url="/birthday/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return RedirectResponse(
+        url="/birthday/", status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
 
 
 @app.get("/birthday/", include_in_schema=False)

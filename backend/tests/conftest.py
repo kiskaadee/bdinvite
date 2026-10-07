@@ -88,6 +88,7 @@ def admin_client(client: TestClient) -> TestClient:
 
 @pytest.fixture(scope="function")
 def guest_client(client: TestClient) -> TestClient:
-    login_client(client, subject="guest-001", email="guest@example.com", groups=["guests"])
+    login_client(
+        client, subject="guest-001", email="guest@example.com", groups=["guests"]
+    )
     return client
-

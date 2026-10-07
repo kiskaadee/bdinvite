@@ -25,17 +25,18 @@ from ..services.map_preview import (
 )
 from ..services.rsvp import delete_rsvp, get_rsvps, update_rsvp
 
-router = APIRouter(tags=["Admin"])
+router = APIRouter(tags=["Admin"], dependencies=[Depends(require_admin)])
 
 AdminDep = Annotated[Identity, Depends(require_admin)]
 DbDep = Annotated[Session, Depends(get_db)]
 
 ADMIN_RESPONSES = {
     401: {"description": "No autenticado. Se requiere sesión activa de usuario."},
-    403: {"description": "Acceso denegado. Se requiere pertenecer al grupo 'bdinvite_admins'."},
+    403: {
+        "description": "Acceso denegado. Se requiere pertenecer al grupo 'bdinvite_admins'."
+    },
 }
 ADMIN_401 = ADMIN_RESPONSES
-
 
 
 @router.get(
@@ -47,7 +48,10 @@ ADMIN_401 = ADMIN_RESPONSES
         "Permite filtrado por coincidencia parcial (`?search=`) sobre nombre, teléfono o correo."
     ),
     responses={
-        200: {"model": RSVPListResponse, "description": "Lista de confirmaciones obtenida."},
+        200: {
+            "model": RSVPListResponse,
+            "description": "Lista de confirmaciones obtenida.",
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -100,10 +104,15 @@ def delete_rsvp_endpoint(
     summary="Editar una confirmación de asistencia",
     description="Actualiza el nombre, teléfono o correo de un asistente confirmado.",
     responses={
-        200: {"model": RSVPAdminItem, "description": "Registro actualizado exitosamente."},
+        200: {
+            "model": RSVPAdminItem,
+            "description": "Registro actualizado exitosamente.",
+        },
         400: {"description": "Error de validación en los campos proporcionados."},
         404: {"description": "Registro no encontrado."},
-        409: {"description": "El número de teléfono ya está registrado por otro asistente."},
+        409: {
+            "description": "El número de teléfono ya está registrado por otro asistente."
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -127,7 +136,6 @@ def update_rsvp_endpoint(
         )
     assert updated is not None
     return updated
-
 
 
 @router.get(
@@ -158,7 +166,11 @@ def export_rsvps_csv(
     for item in rsvps:
         created_iso = ""
         if item.created_at:
-            dt = item.created_at if item.created_at.tzinfo else item.created_at.replace(tzinfo=UTC)
+            dt = (
+                item.created_at
+                if item.created_at.tzinfo
+                else item.created_at.replace(tzinfo=UTC)
+            )
             created_iso = dt.isoformat()
         writer.writerow([item.name, item.phone, item.email or "", created_iso])
 
@@ -176,7 +188,10 @@ def export_rsvps_csv(
     summary="Obtener configuración editable",
     description="Retorna el objeto completo de configuración para poblar el formulario de administración.",
     responses={
-        200: {"model": InvitationConfigResponse, "description": "Configuración obtenida correctamente."},
+        200: {
+            "model": InvitationConfigResponse,
+            "description": "Configuración obtenida correctamente.",
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -201,7 +216,10 @@ def get_admin_config(
         "Los cambios toman efecto de inmediato sin requerir recarga del contenedor."
     ),
     responses={
-        200: {"model": InvitationConfigResponse, "description": "Configuración actualizada con éxito."},
+        200: {
+            "model": InvitationConfigResponse,
+            "description": "Configuración actualizada con éxito.",
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -216,7 +234,10 @@ def get_admin_config(
         "Los cambios toman efecto de inmediato sin requerir recarga del contenedor."
     ),
     responses={
-        200: {"model": InvitationConfigResponse, "description": "Configuración actualizada con éxito."},
+        200: {
+            "model": InvitationConfigResponse,
+            "description": "Configuración actualizada con éxito.",
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -262,7 +283,10 @@ async def update_admin_config(
         "sin realizar escrituras innecesarias a la base de datos."
     ),
     responses={
-        200: {"model": GenerateMapPreviewResponse, "description": "Vista previa generada exitosamente."},
+        200: {
+            "model": GenerateMapPreviewResponse,
+            "description": "Vista previa generada exitosamente.",
+        },
         **ADMIN_RESPONSES,
     },
 )
@@ -282,7 +306,9 @@ async def regenerate_map_preview_endpoint(
         target_url = current.map_url
 
     try:
-        fallback = f"{current.address_lines}\n{current.address_name}" if current else None
+        fallback = (
+            f"{current.address_lines}\n{current.address_name}" if current else None
+        )
         lat, lng, _ = await resolve_google_maps_coordinates(
             target_url, fallback_query=fallback
         )
@@ -305,4 +331,3 @@ async def regenerate_map_preview_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al generar la vista previa del mapa: {err}",
         ) from err
-

@@ -1,10 +1,8 @@
 from dataclasses import FrozenInstanceError
-from typing import Optional
 
 import pytest
 from fastapi import Request, Response
 from fastapi.responses import RedirectResponse
-from starlette.datastructures import Headers
 
 from app.auth import AuthPort, Identity
 
@@ -12,10 +10,10 @@ from app.auth import AuthPort, Identity
 class MockAuthAdapter:
     """Mock implementation of AuthPort for testing hexagonal boundary compliance."""
 
-    def __init__(self, current_user: Optional[Identity] = None):
+    def __init__(self, current_user: Identity | None = None):
         self._current_user = current_user
 
-    def current_identity(self, request: Request) -> Optional[Identity]:
+    def current_identity(self, request: Request) -> Identity | None:
         return self._current_user
 
     def login(self, request: Request) -> Response:
@@ -28,7 +26,7 @@ class MockAuthAdapter:
 class IncompleteAuthAdapter:
     """Non-conforming class missing login and logout methods."""
 
-    def current_identity(self, request: Request) -> Optional[Identity]:
+    def current_identity(self, request: Request) -> Identity | None:
         return None
 
 
