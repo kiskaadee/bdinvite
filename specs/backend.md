@@ -43,6 +43,8 @@ flowchart LR
 ```
 backend/
 ├── pyproject.toml
+├── uv.lock
+├── pyrightconfig.json
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app, lifespan, static file mount, SPA catch-all
@@ -54,15 +56,19 @@ backend/
 │   │   ├── __init__.py
 │   │   ├── rsvp.py           # POST /birthday/api/rsvp
 │   │   ├── config.py         # GET /birthday/api/config
-│   │   └── admin.py          # Admin endpoints
+│   │   └── admin.py          # Admin endpoints (RSVP CRUD, config, map preview)
 │   └── services/
 │       ├── __init__.py
 │       ├── rsvp.py           # RSVP business logic + phone normalization
-│       └── config.py         # Config CRUD + seed defaults
+│       ├── config.py         # Config CRUD + seed defaults
+│       └── map_preview.py    # Google Maps URL resolution & OSM preview stitching
 └── tests/
     ├── __init__.py
-    ├── test_rsvp.py
-    └── test_config.py
+    ├── conftest.py           # Shared fixtures, test database, mock client
+    ├── test_rsvp.py          # Public RSVP endpoint & validation tests
+    ├── test_config.py        # Config endpoints & timezone tests
+    ├── test_admin.py         # Admin auth, RSVP update/delete, and CSV export
+    └── test_map_preview.py   # Coordinate resolution & tile generation
 ```
 
 ---
@@ -135,6 +141,8 @@ flowchart LR
     end
     subgraph Admin["Admin (Remote-User required)"]
         C["GET /birthday/api/admin/rsvps"]
+        C1["PATCH /birthday/api/admin/rsvps/{id}"]
+        C2["DELETE /birthday/api/admin/rsvps/{id}"]
         D["GET /birthday/api/admin/export"]
         E["GET /birthday/api/admin/config"]
         F["PUT /birthday/api/admin/config"]
@@ -232,6 +240,49 @@ List all RSVPs.
     ]
   }
   ```
+
+#### `PATCH /birthday/api/admin/rsvps/{rsvp_id}`
+
+Update details for an existing RSVP record (name, phone, or email).
+
+- **Auth:** `Remote-User` header required
+- **Path parameter:** `rsvp_id: int`
+- **Request body (`RSVPUpdate`):**
+  ```json
+  {
+    "name": "Ana María García",
+    "phone": "3009876543",
+    "email": "anamaria@example.com"
+  }
+  ```
+  All fields are optional in the payload, but non-empty strings are required if present.
+- **Validation:** Phone is normalized using the same 10-digit Colombian format rule (§7).
+- **Responses:**
+  - `200` — Returns updated `RSVPAdminItem`:
+    ```json
+    {
+      "id": 1,
+      "name": "Ana María García",
+      "phone": "3009876543",
+      "email": "anamaria@example.com",
+      "created_at": "2026-09-30T12:00:00Z"
+    }
+    ```
+  - `400` — Validation error on supplied fields.
+  - `404` — `{"detail": "No se encontró el registro con ID {rsvp_id}"}` if not found.
+  - `409` — `{"detail": "El número de teléfono ya está registrado para otro asistente."}` if the new phone conflicts with an existing RSVP.
+  - `401` — Unauthenticated (`Remote-User` missing).
+
+#### `DELETE /birthday/api/admin/rsvps/{rsvp_id}`
+
+Permanently delete an RSVP record by identifier.
+
+- **Auth:** `Remote-User` header required
+- **Path parameter:** `rsvp_id: int`
+- **Responses:**
+  - `204` — No Content (record successfully deleted).
+  - `404` — `{"detail": "No se encontró el registro con ID {rsvp_id}"}` if not found.
+  - `401` — Unauthenticated (`Remote-User` missing).
 
 #### `GET /birthday/api/admin/export`
 
@@ -450,11 +501,13 @@ version = "0.1.0"
 description = "Birthday Invitation RSVP Backend"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.115.0",
+    "fastapi[standard]>=0.115.0",
     "uvicorn>=0.30.0",
     "sqlalchemy>=2.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "pillow>=10.0.0",
+    "httpx>=0.27.0",
 ]
 
 [dependency-groups]
@@ -462,5 +515,6 @@ dev = [
     "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pyright>=1.1.0",
 ]
 ```

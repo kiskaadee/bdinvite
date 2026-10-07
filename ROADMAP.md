@@ -21,7 +21,9 @@
 - [x] Admin endpoints with `Remote-User` guard
 - [x] CSV export endpoint
 - [x] SPA catch-all route
-- [x] Backend tests (15 unit/integration tests passing)
+- [x] Backend tests (25 unit/integration tests passing)
+- [x] OpenStreetMap preview tile generator and geocoding fallback (`app/services/map_preview.py`)
+- [x] Admin RSVP update (`PATCH`) and delete (`DELETE`) endpoints
 
 ## Phase 2 — Frontend Scaffolding
 
@@ -42,7 +44,7 @@
 - [x] Submission state machine (`SUBMITTING` → `SUCCESS` | `DUPLICATE` | `ERROR`)
 - [x] Confirmation section: personalized message
 - [x] Countdown timer (timezone-aware, `NOS VEMOS EN DD:HH:MM:SS`)
-- [x] Map preview (circular static image, link to `mapUrl`)
+- [x] Dynamic map preview (circular OpenStreetMap stitched preview, link to `mapUrl`)
 - [x] Venue info (compact name + address)
 - [x] `sessionStorage` post-RSVP state preservation
 - [x] Accessibility (semantic HTML, keyboard nav, aria-live, focus states)
@@ -54,10 +56,12 @@
 - [x] Admin layout shell (header, navigation)
 - [x] RSVP table with total count
 - [x] Search/filter RSVPs
+- [x] Inline RSVP editing and permanent deletion with modal confirmation
+- [x] Display of registration timestamps in configured event timezone
 - [x] CSV export download button
 - [x] Config editor form (flat fields, Pydantic-validated)
+- [x] Map preview generator trigger button and status feedback
 - [x] Text preview of invitation content
-
 
 ## Phase 5 — Infrastructure & Deployment
 
@@ -70,10 +74,22 @@
 - [ ] Post-deployment verification
 - [ ] Authelia admin route verification
 
+## Phase 6 — Application-Level OIDC Authentication (Staged)
+
+Implemented and verified in branch `feat/sso-auth` ([PR #2](https://gitea.roadtotech.me/kiskaadee/bdinvite/pulls/2)), pending Homelab Authelia OIDC provider rework:
+
+- [x] Decouple admin auth from reverse-proxy `Remote-User` header injection
+- [x] OpenID Connect Authorization Code flow (`/birthday/api/auth/login`, `/callback`, `/logout`, `/me`)
+- [x] Thread-safe in-memory `SessionStore` with expiration and cleanup
+- [x] Cryptographically signed session cookie (HMAC-SHA256, `HttpOnly`, `SameSite=Lax`)
+- [x] Frontend session expiration handling (lock card + re-login modal)
+- [x] Headless browser E2E test with mock OIDC IdP (110 passing assertions)
+- [ ] Configure Authelia OIDC client in `~/Homelab/Core/config/authelia/configuration.yml`
+- [ ] Merge PR #2 and deploy to production
+
 ## Future
 
 - [ ] Font selection (visual comparison of candidates)
-- [x] Application-owned map preview asset (replace URL with static file)
 - [ ] Miniature rendered invitation preview in admin config editor
-- [ ] Enhanced admin features (edit/delete RSVP, attendance status, guest count)
+- [ ] Guest count toggle / attendance status indicator
 - [ ] CSV import

@@ -348,7 +348,7 @@ The map is rendered as a clean, circular preview widget linked to the external n
 - **Hover/Active**: Scales smoothly (`transform: scale(1.05)`), border brightens
 - **Venue Copy**: Clean text block listing venue name and address
 - **External Link**: Text link `VER UBICACIÓN ↗` opening `map_url` in a new tab (`target="_blank" rel="noopener noreferrer"`)
-- **Asset**: Uses `map_preview_url` (v1 configurable URL, architected for future self-hosted static asset)
+- **Asset**: Served via `map_preview_url` (pointing to `/birthday/api/map-preview.png`), dynamically generated on the backend from OpenStreetMap stitched tiles with a cache-busting timestamp `?t=...`
 
 ---
 
@@ -416,26 +416,31 @@ interface Particle {
 
 Served under route `/birthday/admin` and protected at the reverse-proxy level by Authelia ForwardAuth.
 
-### 14.1 RSVP Table View
+### 14.1 RSVP Management Table
 - **Total Count**: Live tally of confirmed invitees
-- **Search Bar**: Substring filtering by name, phone, or email
-- **Table Columns**:
-  - Name
-  - Phone (formatted Colombian mobile)
-  - Email (or em-dash if omitted)
-  - Submission Date/Time (converted from UTC to browser-local)
+- **Search Bar**: Debounced substring filtering by name, phone, or email
+- **Table Columns & Interactions**:
+  - **Name**: Displayed as text; converted to inline `<input>` during edit mode
+  - **Phone**: Formatted as Colombian mobile (`300 123 4567`); validates 10-digit format during inline editing
+  - **Email**: Displayed as text (or em-dash if omitted); validates email format during edit
+  - **Submission Date/Time**: Converted from stored UTC to the event's configured timezone (`event_timezone`, e.g., `America/Bogota`) using Colombian Spanish locale (`es-CO`)
+  - **Actions**:
+    - **Editar**: Triggers row edit mode with Save / Cancel controls; displays inline conflict errors if the phone number is already registered
+    - **Eliminar**: Opens a confirmation dialog and permanently removes the record via `DELETE /birthday/api/admin/rsvps/{id}`
 - **CSV Export**: *"Descargar CSV"* button triggering `GET /birthday/api/admin/export`
 
 ### 14.2 Configuration Editor
 A flat form allowing the host to edit dynamic invitation data:
 - Honoree Name
-- Event Date, Event Time, Event Timezone
+- Event Date, Event Time, Event Timezone (validated against IANA database)
 - Invitation Title & Intro Copy
 - Venue Name & Address Lines
 - Map Preview URL & External Map URL
 - RSVP Button Copy & Feedback Messages
 
-Includes a **Text Preview** block showing the hierarchical composition of the text fields before saving.
+**Special Features:**
+- **On-Demand Map Generation**: Button to trigger `POST /birthday/api/admin/map-preview/generate`, resolving coordinates, writing a freshly stitched OpenStreetMap tile preview to disk, and reporting resolved coordinates with timestamp cache-busting.
+- **Hierarchical Text Preview**: Real-time structured preview of the invitation typographic hierarchy before saving.
 
 ---
 
