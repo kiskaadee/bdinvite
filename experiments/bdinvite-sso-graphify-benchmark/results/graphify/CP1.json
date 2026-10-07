@@ -1,0 +1,60 @@
+{
+  "agent": "graphify",
+  "checkpoint": "CP1",
+  "started_at": "2026-10-03T03:49:39.232144+00:00",
+  "ended_at": "2026-10-03T03:49:56.661509+00:00",
+  "duration_wall_clock_seconds": 17,
+  "rework_iterations": 0,
+  "status": "PASS",
+  "outcome_reason": "none",
+  "verification": {
+    "checkpoint_tests": {
+      "passed": 1,
+      "total": 1
+    },
+    "cumulative_regression_tests": {
+      "passed": 25,
+      "total": 25
+    },
+    "failed_verifications_count": 0,
+    "details": []
+  },
+  "git": {
+    "commits_created": 1,
+    "commit_shas": [
+      "df498979d97a6ac2d58deb4f3f33b12556853217"
+    ],
+    "checkpoint_commit_sha": "df498979d97a6ac2d58deb4f3f33b12556853217",
+    "commit_delegate_logged": false,
+    "commit_delegate_invocations": 1,
+    "commit_delegate_verified": true
+  },
+  "tool_calls": {
+    "exploration": {
+      "view_file": 6,
+      "run_grep_or_find": 4,
+      "graphify_queries": 2,
+      "graphify_updates": 1
+    },
+    "implementation": {
+      "write_to_file": 3
+    },
+    "verification": {
+      "run_test_command": 6
+    },
+    "subagent_delegation": {
+      "git_commit": 1
+    },
+    "graph_lifecycle": {
+      "graph_updates": 1,
+      "graph_queries": 2
+    }
+  },
+  "token_estimate": {
+    "method": "character_density_approximation",
+    "char_density_ratio": 3.8,
+    "input_context_tokens_est": 402812,
+    "output_tokens_est": 8740,
+    "total_tokens_est": 411553
+  }
+}

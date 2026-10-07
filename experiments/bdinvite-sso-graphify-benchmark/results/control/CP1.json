@@ -1,0 +1,54 @@
+{
+  "agent": "control",
+  "checkpoint": "CP1",
+  "started_at": "2026-10-03T03:49:18.283328+00:00",
+  "ended_at": "2026-10-03T03:49:35.113702+00:00",
+  "duration_wall_clock_seconds": 16,
+  "rework_iterations": 0,
+  "status": "PASS",
+  "outcome_reason": "none",
+  "verification": {
+    "checkpoint_tests": {
+      "passed": 1,
+      "total": 1
+    },
+    "cumulative_regression_tests": {
+      "passed": 25,
+      "total": 25
+    },
+    "failed_verifications_count": 0,
+    "details": []
+  },
+  "git": {
+    "commits_created": 1,
+    "commit_shas": [
+      "79c3e8252c0d2e5fc0c9694ffb876e59ec11bb1e"
+    ],
+    "checkpoint_commit_sha": "79c3e8252c0d2e5fc0c9694ffb876e59ec11bb1e",
+    "commit_delegate_logged": false,
+    "commit_delegate_invocations": 1,
+    "commit_delegate_verified": true
+  },
+  "tool_calls": {
+    "exploration": {
+      "view_file": 6,
+      "run_grep_or_find": 2
+    },
+    "implementation": {
+      "write_to_file": 4
+    },
+    "verification": {
+      "run_test_command": 5
+    },
+    "subagent_delegation": {
+      "git_commit": 1
+    }
+  },
+  "token_estimate": {
+    "method": "character_density_approximation",
+    "char_density_ratio": 3.8,
+    "input_context_tokens_est": 480370,
+    "output_tokens_est": 8308,
+    "total_tokens_est": 488678
+  }
+}

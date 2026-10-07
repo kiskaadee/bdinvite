@@ -1,0 +1,59 @@
+{
+  "interactiveLogin": true,
+  "tokenCallbacks": [
+    {
+      "issuerId": "default",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "username",
+          "match": "admin@example.com",
+          "claims": {
+            "sub": "admin-001",
+            "email": "admin@example.com",
+            "name": "Admin User",
+            "groups": [
+              "bdinvite_admins"
+            ]
+          }
+        },
+        {
+          "requestParam": "subject",
+          "match": "admin@example.com",
+          "claims": {
+            "sub": "admin-001",
+            "email": "admin@example.com",
+            "name": "Admin User",
+            "groups": [
+              "bdinvite_admins"
+            ]
+          }
+        },
+        {
+          "requestParam": "username",
+          "match": "guest@example.com",
+          "claims": {
+            "sub": "guest-001",
+            "email": "guest@example.com",
+            "name": "Guest User",
+            "groups": [
+              "guests"
+            ]
+          }
+        },
+        {
+          "requestParam": "subject",
+          "match": "guest@example.com",
+          "claims": {
+            "sub": "guest-001",
+            "email": "guest@example.com",
+            "name": "Guest User",
+            "groups": [
+              "guests"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

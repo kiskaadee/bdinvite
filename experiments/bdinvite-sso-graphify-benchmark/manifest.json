@@ -1,0 +1,51 @@
+{
+  "benchmark_name": "bdinvite_sso_benchmark",
+  "frozen_at": "2026-10-02T22:35:40Z",
+  "specification": {
+    "path": "specification/bdinvite_sso_benchmark_plan.md",
+    "sha256": "4b520fb57f1c96a5d7ac492d16aaabd8accd50b5afe328a3b0066102b4f27453",
+    "canonical_brain_plan": "/home/kiskaadee/Brain/01-plans/bdinvite/sso-benchmark-roadmap.md"
+  },
+  "baseline": {
+    "source_repository": "/home/kiskaadee/Homelab/Sites/bdinvite",
+    "commit_sha": "42927b9858c1b091bb6e78d3abcf6f9500bd7547",
+    "tests_total": 25,
+    "tests_passed": 25,
+    "status": "VERIFIED_CLEAN"
+  },
+  "fixture": {
+    "image": "ghcr.io/navikt/mock-oauth2-server:2.1.10",
+    "issuer_url": "http://localhost:8088/default",
+    "discovery_url": "http://localhost:8088/default/.well-known/openid-configuration",
+    "client_id": "bdinvite-client",
+    "client_secret": "bdinvite-secret",
+    "pre_seeded_users": [
+      {
+        "username": "admin@example.com",
+        "groups": ["bdinvite_admins"]
+      },
+      {
+        "username": "guest@example.com",
+        "groups": ["guests"]
+      }
+    ]
+  },
+  "evaluator": {
+    "runner": "evaluator/gatekeeper.py",
+    "python_env": "evaluator/.venv",
+    "playwright_browser": "chromium",
+    "checkpoints": ["CP1", "CP2", "CP3", "CP4", "CP5", "CP6", "CP7", "CP8"]
+  },
+  "worktrees": {
+    "control": {
+      "path": "control",
+      "branch": "control/feat/sso-auth",
+      "toolchain": ["grep", "find", "view_file", "git"]
+    },
+    "graphify": {
+      "path": "graphify",
+      "branch": "graphify/feat/sso-auth",
+      "toolchain": ["grep", "find", "view_file", "git", "graphify"]
+    }
+  }
+}

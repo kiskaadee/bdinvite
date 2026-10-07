@@ -1,0 +1,43 @@
+{
+  "agent": "control",
+  "checkpoint": "CP4",
+  "status": "PASS",
+  "outcome_reason": "none",
+  "turns": 66,
+  "verification": {
+    "cumulative_tests_passed": 76,
+    "baseline_passed": 25,
+    "failed_verifications_count": 0
+  },
+  "git": {
+    "commits_created": 1,
+    "commit_shas": [
+      "d7618d574ce334b6bd63fbe6967fdc30cdd13e32"
+    ],
+    "checkpoint_commit_sha": "d7618d574ce334b6bd63fbe6967fdc30cdd13e32",
+    "commit_delegate_invocations": 1,
+    "commit_delegate_verified": true
+  },
+  "tool_calls": {
+    "exploration": {
+      "view_file": 28
+    },
+    "implementation": {
+      "write_to_file": 5,
+      "replace_file_content": 6
+    },
+    "verification": {
+      "run_command": 21
+    },
+    "subagent_delegation": {
+      "git_commit": 1
+    }
+  },
+  "token_estimate": {
+    "method": "character_density_approximation",
+    "char_density_ratio": 3.8,
+    "input_context_tokens_est": 2592809,
+    "output_tokens_est": 27256,
+    "total_tokens_est": 2620065
+  }
+}

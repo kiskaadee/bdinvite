@@ -1,0 +1,47 @@
+{
+  "agent": "graphify",
+  "checkpoint": "CP4",
+  "status": "PASS",
+  "outcome_reason": "none",
+  "turns": 101,
+  "verification": {
+    "cumulative_tests_passed": 70,
+    "baseline_passed": 25,
+    "failed_verifications_count": 0
+  },
+  "git": {
+    "commits_created": 1,
+    "commit_shas": [
+      "815a5847c6b4b557a1e181af67af05ce9d933001"
+    ],
+    "checkpoint_commit_sha": "815a5847c6b4b557a1e181af67af05ce9d933001",
+    "commit_delegate_invocations": 1,
+    "commit_delegate_verified": true
+  },
+  "tool_calls": {
+    "exploration": {
+      "view_file": 41,
+      "graphify_update": 1
+    },
+    "implementation": {
+      "write_to_file": 3,
+      "replace_file_content": 14
+    },
+    "verification": {
+      "run_command": 39
+    },
+    "subagent_delegation": {
+      "git_commit": 1
+    },
+    "graph_lifecycle": {
+      "graph_updates": 1
+    }
+  },
+  "token_estimate": {
+    "method": "character_density_approximation",
+    "char_density_ratio": 3.8,
+    "input_context_tokens_est": 4542036,
+    "output_tokens_est": 32881,
+    "total_tokens_est": 4574917
+  }
+}

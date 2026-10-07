@@ -24,6 +24,10 @@ A mobile-first invitation app with animated golden bokeh particles, an RSVP form
 - [Infrastructure Specification](specs/infra.md)
 - [Roadmap](ROADMAP.md)
 
+## Experiments
+
+- [SSO Graphify Benchmark](experiments/bdinvite-sso-graphify-benchmark/README.md) — Retrospective and archived evidence from an 8-checkpoint agent implementation benchmark.
+
 ## License
 
 [Unlicense](UNLICENSE) — public domain.
